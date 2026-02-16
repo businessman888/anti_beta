@@ -49,4 +49,13 @@ Se precisar rodar migrations em produção, você pode adicionar um comando de *
 
 ## 5. Deploy
 
-Após configurar as variáveis, a Railway deve disparar um novo deploy automaticamente. Acompanhe os logs na aba **Deployments** para garantir que tudo subiu corretamente.
+Após configurar as variáveis, a Railway deve disparar um novo deploy automaticamente. 
+## 6. URL Pública (Domínio)
+
+Para saber qual URL seu backend está usando:
+1.  Vá no Dashboard do seu projeto na Railway.
+2.  Clique no serviço do Backend.
+3.  Vá na aba **Settings**.
+4.  Role até **Networking** (ou **Domains**).
+5.  Clique em **Generate Domain** (se não tiver um) ou copie o domínio existente (ex: `anti-beta-production.up.railway.app`).
+6.  **Essa é a `BASE_URL` que o Mobile deve usar.**
