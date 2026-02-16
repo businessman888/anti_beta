@@ -1,4 +1,4 @@
-import './src/design-system/tokens'; // Ensure tokens or CSS are loaded if needed
+import './global.css';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
