@@ -13,6 +13,13 @@ export class AppController {
     return this.appService.getHello();
   }
 
+  @Get('health')
+  @ApiOperation({ summary: 'Health check endpoint' })
+  @ApiResponse({ status: 200, description: 'Health Check OK' })
+  getHealth(): { status: string } {
+    return { status: 'ok' };
+  }
+
   @Get('status')
   @ApiOperation({ summary: 'Verificar status da API' })
   @ApiResponse({
