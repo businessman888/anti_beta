@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum SubscriptionTier {
+  FREE
+  BASIC
+  PRO
+  ALPHA
+}
+
+enum QuestionType {
+  TEXT
+  NUMBER
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  SCALE
+}
+
+model User {
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  password            String
+  name                String?
+  role                UserRole @default(USER)
+  onboardingCompleted Boolean  @default(false)
+  subscriptionTier    SubscriptionTier @default(FREE)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  profile             UserProfile?
+  goals               Goal[]
+  tasks               Task[]
+  onboardingResponses OnboardingResponse[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  
+  // Personal Info
+  age            Int?
+  profession     String?
+  incomeRange    String?
+  bio            String?
+  
+  // Gamification & Progress
+  cohort         String?
+  activityPoints Int      @default(0)
+  testoLevel     Float    @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_profiles")
+}
+
+model Question {
+  id        String       @id @default(uuid())
+  text      String
+  section   String
+  type      QuestionType
+  options   Json?        // Array of strings/objects for choices
+  order     Int
+  
+  responses OnboardingResponse[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("questions")
+}
+
+model OnboardingResponse {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+  
+  answerValue Json
+
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, questionId])
+  @@map("onboarding_responses")
+}
+
+model Goal {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  type      String   // ANNUAL, MONTHLY, WEEKLY, DAILY
+  title     String
+  status    String   // PENDING, COMPLETED
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("goals")
+}
+
+model Task {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  title     String
+  isCompleted Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tasks")
+}
