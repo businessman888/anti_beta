@@ -27,6 +27,7 @@ No painel do seu serviço na Railway, vá na aba **Variables** e adicione as seg
 | `JWT_EXPIRES_IN` | Tempo de expiração do token | `7d` |
 | `NODE_ENV` | Ambiente de execução | `production` |
 | `PORT` | Porta da aplicação (A Railway injeta isso automaticamente, mas bom ter) | `3000` |
+| `FRONTEND_URL` | URL do Frontend (CORS) | `*` (ou `https://seu-app.vercel.app`) |
 
 > **Dica:** Para o `DATABASE_URL` em produção, recomendo usar a conexão **Transaction Pooler** (porta 6543) do Supabase para melhor performance com muitas conexões simultâneas.
 
