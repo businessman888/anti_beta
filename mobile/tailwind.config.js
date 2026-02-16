@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-const { tokens } = require('./src/design-system/tokens');
+const { tokens } = require('./src/design-system/tokens.js');
 
 module.exports = {
     content: ["./App.{js,jsx,ts,tsx}", "./src/**/*.{js,jsx,ts,tsx}"],
