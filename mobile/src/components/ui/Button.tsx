@@ -28,9 +28,9 @@ export const Button = ({
     };
 
     const textStyles = {
-        primary: "text-white font-bold text-lg", // Assuming white text on orange
-        outline: "text-brasa-500 font-bold text-lg",
-        ghost: "text-zinc-400 font-medium text-base",
+        primary: "text-carbono-950 font-semibold text-base", // Updated to dark text and semibold
+        outline: "text-brasa-500 font-semibold text-base", // Updated size/weight
+        ghost: "text-zinc-400 font-medium text-sm",
     };
 
     return (

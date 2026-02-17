@@ -42,17 +42,21 @@ export const LandingScreen = () => {
             </View>
 
             {/* Bottom Buttons */}
-            <View className="w-full px-6 pb-8 gap-4">
-                <Button
-                    title="Iniciar Transformação"
-                    onPress={() => navigation.navigate('SignUp')}
-                    variant="primary"
-                />
-                <Button
-                    title="Já sou um membro"
-                    variant="outline"
-                    onPress={() => navigation.navigate('Login')}
-                />
+            <View className="w-full px-6 pb-8">
+                <View className="mb-4">
+                    <Button
+                        title="Iniciar Transformação"
+                        onPress={() => navigation.navigate('SignUp')}
+                        variant="primary"
+                    />
+                </View>
+                <View>
+                    <Button
+                        title="Já sou um membro"
+                        variant="outline"
+                        onPress={() => navigation.navigate('Login')}
+                    />
+                </View>
             </View>
         </SafeAreaView>
     );
