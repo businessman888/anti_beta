@@ -22,14 +22,14 @@ export const Button = ({
     const baseStyles = "w-full py-4 rounded-xl items-center justify-center flex-row";
 
     const variants = {
-        primary: "bg-red-600 active:bg-red-700", // Brasa 500 approximation
-        outline: "border border-red-600 bg-transparent active:bg-zinc-900",
-        ghost: "bg-transparent active:bg-zinc-900",
+        primary: "bg-brasa-500 active:bg-brasa-600",
+        outline: "border border-brasa-500 bg-transparent active:bg-carbono-900",
+        ghost: "bg-transparent active:bg-carbono-900",
     };
 
     const textStyles = {
-        primary: "text-white font-bold text-lg",
-        outline: "text-red-600 font-bold text-lg",
+        primary: "text-white font-bold text-lg", // Assuming white text on orange
+        outline: "text-brasa-500 font-bold text-lg",
         ghost: "text-zinc-400 font-medium text-base",
     };
 
@@ -45,7 +45,7 @@ export const Button = ({
             )}
         >
             {isLoading ? (
-                <ActivityIndicator color={variant === 'outline' ? '#dc2626' : 'white'} />
+                <ActivityIndicator color={variant === 'outline' ? '#ff4422' : 'white'} />
             ) : (
                 <Text className={textStyles[variant]}>{title}</Text>
             )}

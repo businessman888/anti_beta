@@ -12,25 +12,41 @@ export const LandingScreen = () => {
     const navigation = useNavigation<NavigationProp>();
 
     return (
-        <SafeAreaView className="flex-1 bg-zinc-950 justify-between p-6">
-            <View className="flex-1 justify-center items-center">
-                {/* Placeholder for Logo */}
-                <View className="w-32 h-32 bg-red-600 rounded-full items-center justify-center mb-8">
-                    <Text className="text-white text-4xl font-bold">AB</Text>
+        <SafeAreaView className="flex-1 bg-carbono-950 justify-between">
+            <View className="flex-1 items-center justify-center px-6">
+                {/* Logo Section */}
+                <View className="items-center mb-12">
+                    <Image
+                        source={require('../../assets/images/beta-removebg-preview.png')}
+                        className="w-48 h-48 mb-6"
+                        resizeMode="contain"
+                    />
                 </View>
 
-                <Text className="text-white text-3xl font-bold text-center mb-2">
-                    AntiBeta
-                </Text>
-                <Text className="text-zinc-400 text-center text-lg px-4">
-                    Transforme sua vida através da disciplina e autoconhecimento.
-                </Text>
+                {/* Text Content */}
+                <View className="items-center">
+                    <Text className="text-zinc-200 text-center text-lg font-medium leading-relaxed">
+                        Para você que está cansado{'\n'}
+                        de ser beta e
+                    </Text>
+                    <Text className="text-brasa-500 text-center text-lg font-bold mt-1">
+                        Não sobrar nada
+                    </Text>
+                </View>
+
+                {/* Pagination Dots (Visual Only - Static based on image) */}
+                <View className="flex-row gap-2 mt-12">
+                    <View className="w-8 h-2 rounded-full bg-brasa-500" />
+                    <View className="w-2 h-2 rounded-full bg-zinc-600" />
+                </View>
             </View>
 
-            <View className="w-full gap-4 mb-4">
+            {/* Bottom Buttons */}
+            <View className="w-full px-6 pb-8 gap-4">
                 <Button
                     title="Iniciar Transformação"
                     onPress={() => navigation.navigate('SignUp')}
+                    variant="primary"
                 />
                 <Button
                     title="Já sou um membro"
