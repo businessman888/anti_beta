@@ -28,12 +28,7 @@ export const QuizProgressBar: React.FC<QuizProgressBarProps> = ({ currentStep, t
 
     return (
         <View className="mb-8 w-full">
-            <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-white font-bold text-lg">Pontuação Alfa</Text>
-                <View className="bg-zinc-800 px-3 py-1 rounded-full border border-orange-500/30 flex-row items-center">
-                    <Text className="text-orange-500 font-bold text-xs">50XP</Text>
-                </View>
-            </View>
+
 
             <View className="h-1 bg-zinc-800 rounded-full overflow-hidden mb-2 w-full">
                 <Animated.View

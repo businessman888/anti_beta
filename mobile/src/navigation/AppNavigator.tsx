@@ -9,13 +9,9 @@ import { HomeScreen } from '../screens/home/HomeScreen';
 import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen';
 import { View, ActivityIndicator } from 'react-native';
 
-export type RootStackParamList = {
-    Landing: undefined;
-    Login: undefined;
-    SignUp: undefined;
-    Home: undefined;
-    Onboarding: undefined;
-};
+import { PlanGeneratedScreen } from '../screens/onboarding/PlanGeneratedScreen';
+
+import { RootStackParamList } from '../types/navigation';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -42,7 +38,10 @@ export const AppNavigator = () => {
                     onboardingCompleted ? (
                         <Stack.Screen name="Home" component={HomeScreen} />
                     ) : (
-                        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                        <>
+                            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                            <Stack.Screen name="PlanGenerated" component={PlanGeneratedScreen} />
+                        </>
                     )
                 ) : (
                     // Public Stack
