@@ -10,6 +10,9 @@ import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen';
 import { View, ActivityIndicator } from 'react-native';
 
 import { PlanGeneratedScreen } from '../screens/onboarding/PlanGeneratedScreen';
+import { HistoryScreen } from '../screens/content/HistoryScreen';
+import { GoalsScreen } from '../screens/goals/GoalsScreen';
+import { MainTabNavigator } from './MainTabNavigator';
 
 import { RootStackParamList } from '../types/navigation';
 
@@ -36,7 +39,11 @@ export const AppNavigator = () => {
                 {session ? (
                     // Authenticated Stack
                     onboardingCompleted ? (
-                        <Stack.Screen name="Home" component={HomeScreen} />
+                        <>
+                            <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+                            <Stack.Screen name="History" component={HistoryScreen} />
+                            <Stack.Screen name="Goals" component={GoalsScreen} />
+                        </>
                     ) : (
                         <>
                             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
