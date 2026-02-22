@@ -62,26 +62,37 @@ export class PlanningService {
 
       // Save plan to database if userId is provided
       if (userId) {
-        this.logger.log(`Saving plan to database for user ${userId}...`);
-        const plan = await this.prisma.plan.upsert({
-          where: { userId },
-          create: {
+        try {
+          this.logger.log(`Saving plan to database for user ${userId}...`);
+          const plan = await this.prisma.plan.upsert({
+            where: { userId },
+            create: {
+              userId,
+              planData: planJson,
+            },
+            update: {
+              planData: planJson,
+            },
+          });
+
+          this.logger.log(`Plan saved for user ${userId}, plan id: ${plan.id}`);
+
+          return {
+            id: plan.id,
+            userId: plan.userId,
+            planData: plan.planData,
+            createdAt: plan.createdAt,
+          };
+        } catch (dbError: any) {
+          this.logger.error(`Failed to save plan to DB: ${dbError?.message}`);
+          // Return the plan anyway — don't lose the AI generation
+          return {
+            id: 'unsaved',
             userId,
             planData: planJson,
-          },
-          update: {
-            planData: planJson,
-          },
-        });
-
-        this.logger.log(`Plan saved for user ${userId}, plan id: ${plan.id}`);
-
-        return {
-          id: plan.id,
-          userId: plan.userId,
-          planData: plan.planData,
-          createdAt: plan.createdAt,
-        };
+            createdAt: new Date(),
+          };
+        }
       }
 
       // Return plan without saving if no userId

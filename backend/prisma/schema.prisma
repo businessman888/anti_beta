@@ -44,7 +44,6 @@ model User {
   goals               Goal[]
   tasks               Task[]
   onboardingResponses OnboardingResponse[]
-  plan                Plan?
 
   @@map("users")
 }
@@ -135,7 +134,6 @@ model Task {
 model Plan {
   id        String   @id @default(uuid())
   userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
   planData  Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
