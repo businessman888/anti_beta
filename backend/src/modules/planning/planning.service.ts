@@ -107,56 +107,44 @@ CONTEXTO:
 O Antibeta é um app de desenvolvimento pessoal masculino focado em transformar homens "beta" em "alpha" através de metas estruturadas em treino, alimentação, mindset, hábitos e habilidades sociais.
 
 SUA TAREFA:
-Gerar um plano trimestral (3 meses) personalizado baseado nas respostas do quiz de onboarding do usuário. O plano deve ser progressivo, realista e baseado em ciência.
+Gerar um plano trimestral (3 meses) personalizado baseado nas respostas do quiz. O plano deve ser progressivo, realista e baseado em ciência.
 
 ESTRUTURA DO OUTPUT (JSON ESTRITO):
-Retorne APENAS um JSON válido (sem texto adicional, sem markdown) com a seguinte estrutura:
+Retorne APENAS um JSON válido (sem texto, sem markdown, sem code blocks) com esta estrutura:
 
 {
-  "meta_trimestral": "string - objetivo principal dos 3 meses",
+  "meta_trimestral": "string curto - objetivo principal",
   "insights": {
-    "foco_principal": "string - área que mais precisa de atenção",
-    "ritmo": "string - Modo Leve / Moderado / Intenso / Extremo",
-    "complexidade": "string - Baixa / Média / Alta / Alta Precisão"
+    "foco_principal": "string curto",
+    "ritmo": "Leve | Moderado | Intenso | Extremo",
+    "complexidade": "Baixa | Média | Alta"
   },
   "meses": [
     {
       "numero": 1,
-      "titulo": "string - nome do mês (ex: Fundamentos)",
-      "objetivo": "string - objetivo principal do mês",
+      "titulo": "string curto",
+      "objetivo": "string curto",
       "semanas": [
         {
           "numero": 1,
-          "foco": "string - foco da semana (ex: Iniciação)",
+          "foco": "string curto",
           "dias": [
             {
               "dia": 1,
               "tarefas": [
                 {
                   "categoria": "treino | alimentacao | habito | mindset | social",
-                  "titulo": "string",
-                  "descricao": "string - instrução específica e acionável",
+                  "titulo": "string curto",
+                  "descricao": "max 15 palavras, ação específica",
                   "concluida": false
                 }
               ]
             }
           ]
         },
-        {
-          "numero": 2,
-          "foco": "string",
-          "objetivos_principais": ["string", "string"]
-        },
-        {
-          "numero": 3,
-          "foco": "string",
-          "objetivos_principais": ["string", "string"]
-        },
-        {
-          "numero": 4,
-          "foco": "string",
-          "objetivos_principais": ["string", "string"]
-        }
+        { "numero": 2, "foco": "string", "objetivos_principais": ["string", "string"] },
+        { "numero": 3, "foco": "string", "objetivos_principais": ["string", "string"] },
+        { "numero": 4, "foco": "string", "objetivos_principais": ["string", "string"] }
       ]
     },
     {
@@ -174,17 +162,15 @@ Retorne APENAS um JSON válido (sem texto adicional, sem markdown) com a seguint
   ]
 }
 
-REGRAS IMPORTANTES:
-1. O MÊS 1 deve ter a SEMANA 1 detalhada com 7 dias e 4-5 tarefas por dia
-2. As semanas 2, 3 e 4 do mês 1 devem ter apenas foco e objetivos principais (2 itens cada)
-3. Os meses 2 e 3 devem ter apenas título, objetivo e 3 pontos-chave cada
-4. As tarefas devem ser ESPECÍFICAS e ACIONÁVEIS (não genéricas)
-5. Adapte a dificuldade ao perfil do usuário (sedentário recebe treinos mais leves, etc)
-6. Considere restrições físicas, disponibilidade de tempo e acesso a academia
-7. Para vícios (porn, masturbação, redes sociais), inclua estratégias práticas de redução gradual
-8. Inclua sempre: treino/atividade física, alimentação, hábito positivo, mindset/leitura, e algo social
-9. Seja direto, sem rodeios, com linguagem motivacional do tipo "tough love"
-10. Retorne SOMENTE o JSON, sem nenhum texto antes ou depois`;
+REGRAS:
+1. MÊS 1, SEMANA 1: 7 dias com EXATAMENTE 3 tarefas por dia (uma de treino/físico, uma de mindset/hábito, uma social/alimentação)
+2. Semanas 2-4 do mês 1: apenas foco e 2 objetivos_principais
+3. Meses 2 e 3: apenas título, objetivo e 3 pontos_chave
+4. Tarefas ESPECÍFICAS e ACIONÁVEIS, descrições CURTAS (max 15 palavras)
+5. Adapte ao perfil do usuário
+6. Considere restrições físicas e acesso a academia
+7. Linguagem direta, motivacional, tough love
+8. SOMENTE JSON, sem texto antes ou depois, sem code blocks`;
   }
 
   private buildUserPrompt(answers: Record<string, any>): string {
