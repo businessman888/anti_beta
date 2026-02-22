@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollVie
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowRight, Dog, Backpack, GraduationCap, Briefcase, Clock, UserX, Rocket } from 'lucide-react-native';
 import { useQuizStore } from '../../store/quizStore';
+import { usePlanStore } from '../../store/planStore';
 import { QuizProgressBar } from '../../components/quiz/QuizProgressBar';
 import { QuizInput } from '../../components/quiz/inputs/QuizInput';
 import { useAuthStore } from '../../store/authStore';
@@ -140,8 +141,13 @@ export const OnboardingScreen = () => {
             nextStep();
         } else if (currentStep === 27) {
             setAnswer('additionalContext', additionalContext);
-            // Navigate to Plan Generated Screen
-            navigation.navigate('PlanGenerated');
+            // Collect all answers and trigger plan generation
+            const allAnswers = {
+                ...answers,
+                additionalContext,
+            };
+            usePlanStore.getState().generatePlan(allAnswers);
+            navigation.navigate('PlanLoading');
         } else {
             // Handle other steps or validation
             console.log("Validation failed or step not implemented");
@@ -932,7 +938,7 @@ export const OnboardingScreen = () => {
                                 className={`flex-1 flex-row justify-center items-center py-4 rounded-full ${isStepValid() ? 'bg-orange-500' : 'bg-zinc-800/50'}`}
                             >
                                 <Text className={`font-bold text-lg mr-2 ${isStepValid() ? 'text-white' : 'text-zinc-500'}`}>
-                                    Continuar
+                                    {currentStep === 27 ? 'Finalizar' : 'Continuar'}
                                 </Text>
                                 <ArrowRight size={20} color={isStepValid() ? '#fff' : '#71717a'} />
                             </TouchableOpacity>

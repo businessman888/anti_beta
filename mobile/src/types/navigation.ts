@@ -4,6 +4,7 @@ export type RootStackParamList = {
     SignUp: undefined;
     MainTabs: undefined; // Replaces Home directly in stack
     Onboarding: undefined;
+    PlanLoading: undefined;
     PlanGenerated: undefined;
     History: undefined;
     Goals: undefined;

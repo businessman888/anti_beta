@@ -10,6 +10,7 @@ import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen';
 import { View, ActivityIndicator } from 'react-native';
 
 import { PlanGeneratedScreen } from '../screens/onboarding/PlanGeneratedScreen';
+import { PlanLoadingScreen } from '../screens/onboarding/PlanLoadingScreen';
 import { HistoryScreen } from '../screens/content/HistoryScreen';
 import { GoalsScreen } from '../screens/goals/GoalsScreen';
 import { MainTabNavigator } from './MainTabNavigator';
@@ -47,6 +48,7 @@ export const AppNavigator = () => {
                     ) : (
                         <>
                             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                            <Stack.Screen name="PlanLoading" component={PlanLoadingScreen} />
                             <Stack.Screen name="PlanGenerated" component={PlanGeneratedScreen} />
                         </>
                     )

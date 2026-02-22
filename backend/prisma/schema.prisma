@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-
 }
 
 enum UserRole {
@@ -44,6 +43,7 @@ model User {
   goals               Goal[]
   tasks               Task[]
   onboardingResponses OnboardingResponse[]
+  plan                Plan?
 
   @@map("users")
 }
@@ -129,4 +129,15 @@ model Task {
   updatedAt DateTime @updatedAt
 
   @@map("tasks")
+}
+
+model Plan {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  planData  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("plans")
 }

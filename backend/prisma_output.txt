@@ -1,0 +1,57 @@
+﻿node.exe : Loaded 
+Prisma config from 
+prisma.config.ts.
+No linha:1 caractere:1
++ & "C:\Program Files\
+nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (Loaded Pri   
+ sma c...isma.conf    
+ig.ts.:String) []    
+, RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+
+Prisma schema loaded 
+from 
+prisma\schema.prisma.
+Datasource "db": PostgreSQL database "postgres", schema "public" at "db.roajfuqdvkfhyxrgxgku.supabase.co:5432"
+
+- Introspecting based on datasource defined in prisma\schema.prisma
+Ô£û Introspecting based on datasource defined in prisma\schema.prisma
+
+Error: P4002
+
+The schema of the 
+introspected database 
+was inconsistent: The 
+schema of the 
+introspected database 
+was inconsistent: 
+Cross schema 
+references are only 
+allowed when the 
+target schema is 
+listed in the schemas 
+property of your 
+datasource. 
+`public.profiles` 
+points to 
+`auth.users` in 
+constraint 
+`profiles_id_fkey`. 
+Please add `auth` to 
+your `schemas` 
+property and run this 
+command again.
+
