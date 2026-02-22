@@ -141,12 +141,41 @@ export const OnboardingScreen = () => {
             nextStep();
         } else if (currentStep === 27) {
             setAnswer('additionalContext', additionalContext);
-            // Collect all answers and trigger plan generation
+            // Build complete answers from all local state to ensure nothing is missing
             const allAnswers = {
                 ...answers,
+                name,
+                age,
+                professionalSituation,
+                dailyAvailability,
+                currentIncome,
+                selfEsteem,
+                pornographyFrequency,
+                masturbationFrequency,
+                socialMediaTime,
+                substanceUse,
+                sleepHours,
+                sleepQuality,
+                diet,
+                physicalActivity,
+                workoutTypes,
+                physicalCondition,
+                physicalRestrictions,
+                restrictionDescription,
+                gymAccess,
+                communicationSkills,
+                relationshipStatus,
+                romanticInteractions,
+                interactionDifficulties,
+                socializingFrequency,
+                socialCircle,
+                primaryObjectives,
+                timelineExpectation,
+                commitmentLevel,
                 additionalContext,
             };
-            usePlanStore.getState().generatePlan(allAnswers);
+            const userId = useAuthStore.getState().session?.user?.id;
+            usePlanStore.getState().generatePlan(allAnswers, userId);
             navigation.navigate('PlanLoading');
         } else {
             // Handle other steps or validation
