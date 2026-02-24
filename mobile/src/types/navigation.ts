@@ -8,6 +8,10 @@ export type RootStackParamList = {
     PlanGenerated: undefined;
     History: undefined;
     Goals: undefined;
+    Workout: undefined;
+    Achievements: undefined;
+    WeeklyTip: undefined;
+    Profile: undefined;
 };
 
 export type MainTabParamList = {

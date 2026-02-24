@@ -1,45 +1,56 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Clock, CheckCircle2, Circle } from 'lucide-react-native';
 
 interface MealItemProps {
     title: string;
     time: string;
     completed: boolean;
-    isCurrent?: boolean;
+    isNext?: boolean;
+    onToggle?: () => void;
 }
 
-const MealItem = ({ title, time, completed, isCurrent }: MealItemProps) => {
+const MealItem = ({ title, time, completed, onToggle }: MealItemProps) => {
+    // Styling based on user request: all non-completed white/orange
+    const iconColor = completed ? "#22c55e" : "#ffffff";
+    const titleStyle = completed ? "text-zinc-600 line-through" : "text-zinc-100";
+    const timeStyle = completed ? "text-zinc-700 font-bold" : "text-orange-600 font-bold";
+
     return (
-        <View className="flex-row items-center justify-between mb-5">
-            <View className="flex-row items-center">
-                {completed ? (
-                    <CheckCircle2 size={22} color="#22c55e" />
-                ) : isCurrent ? (
-                    <Circle size={22} color="#ffffff" strokeWidth={2} />
-                ) : (
-                    <Circle size={22} color="#3f3f46" />
-                )}
-                <Text className={`ml-3 text-base font-medium ${completed ? 'text-zinc-400' : isCurrent ? 'text-white' : 'text-zinc-600'}`}>
+        <TouchableOpacity
+            onPress={onToggle}
+            activeOpacity={0.7}
+            className="flex-row items-center justify-between mb-6 last:mb-0"
+        >
+            <View className="flex-row items-center flex-1">
+                <View className="mr-3">
+                    {completed ? (
+                        <CheckCircle2 size={24} color="#22c55e" strokeWidth={3} />
+                    ) : (
+                        <Circle size={24} color="#3f3f46" />
+                    )}
+                </View>
+                <Text className={`text-lg flex-1 font-medium ${titleStyle}`}>
                     {title}
                 </Text>
             </View>
-            <Text className={`text-sm font-bold ${completed ? 'text-zinc-700' : isCurrent ? 'text-orange-600' : 'text-zinc-700'}`}>
+            <Text className={`text-sm ${timeStyle}`}>
                 {time}
             </Text>
-        </View>
+        </TouchableOpacity>
     );
 };
 
 interface MealsCardProps {
-    items: MealItemProps[];
+    items: Omit<MealItemProps, 'onToggle' | 'isNext'>[];
+    onToggleMeal?: (index: number) => void;
 }
 
-export const MealsCard = ({ items }: MealsCardProps) => {
+export const MealsCard = ({ items, onToggleMeal }: MealsCardProps) => {
     return (
-        <View className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 mb-4">
+        <View className="bg-zinc-900 border border-zinc-800/50 rounded-3xl p-6 mb-4">
             <View className="flex-row items-center mb-8">
-                <View className="bg-orange-600/20 p-2 rounded-xl mr-3">
+                <View className="bg-orange-600/10 p-2 rounded-xl mr-3">
                     <Clock size={20} color="#f97316" fill="#f97316" />
                 </View>
                 <Text className="text-white font-bold text-xl">Refeições</Text>
@@ -47,7 +58,11 @@ export const MealsCard = ({ items }: MealsCardProps) => {
 
             <View>
                 {items.map((item, index) => (
-                    <MealItem key={index} {...item} />
+                    <MealItem
+                        key={index}
+                        {...item}
+                        onToggle={() => onToggleMeal?.(index)}
+                    />
                 ))}
             </View>
         </View>

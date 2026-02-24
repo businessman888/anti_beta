@@ -5,10 +5,11 @@ import { Droplet } from 'lucide-react-native';
 interface HydrationCardProps {
     current: number;
     target: number;
+    onAdd: () => void;
 }
 
-export const HydrationCard = ({ current, target }: HydrationCardProps) => {
-    const progress = (current / target) * 100;
+export const HydrationCard = ({ current, target, onAdd }: HydrationCardProps) => {
+    const progress = Math.min((current / target) * 100, 100);
 
     return (
         <View className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 mb-4">
@@ -29,7 +30,10 @@ export const HydrationCard = ({ current, target }: HydrationCardProps) => {
                 />
             </View>
 
-            <TouchableOpacity className="bg-orange-600 rounded-2xl py-4 items-center shadow-lg shadow-orange-950/20 active:bg-orange-700">
+            <TouchableOpacity
+                onPress={onAdd}
+                className="bg-orange-600 rounded-2xl py-4 items-center shadow-lg shadow-orange-950/20 active:bg-orange-700"
+            >
                 <Text className="text-white font-bold text-lg">+ 500ml</Text>
             </TouchableOpacity>
         </View>

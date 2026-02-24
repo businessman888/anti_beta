@@ -1,26 +1,162 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User } from 'lucide-react-native';
+import {
+    ArrowLeft,
+    Bell,
+    Pencil,
+    Flame,
+    Trophy,
+    Star,
+    Zap,
+    CheckCircle2,
+    Settings,
+    Eye,
+    Contrast,
+    Headset,
+    FileText,
+    LogOut,
+    Trash2,
+    ChevronRight
+} from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { homeMockData } from '../../mocks/homeMock';
 import { useAuthStore } from '../../store/authStore';
 
 export const ProfileScreen = () => {
-    const { signOut, user } = useAuthStore();
+    const navigation = useNavigation();
+    const { signOut } = useAuthStore();
+
+    // Stats data
+    const stats = [
+        { label: 'Dias seguidos', value: '14d', icon: <Flame size={20} color="#ff4422" fill="#ff4422" /> },
+        { label: 'Ranking', value: '#34', icon: <Trophy size={20} color="#ff4422" /> },
+        { label: 'Badges', value: '8/36', icon: <Star size={20} color="#ff4422" fill="#ff4422" /> },
+        { label: 'Testo', value: '67%', icon: <Zap size={20} color="#ff4422" fill="#ff4422" /> },
+    ];
+
+    // Preferences items
+    const preferences = [
+        { label: 'Configurações', icon: <Settings size={20} color="#737373" /> },
+        { label: 'Notificações', icon: <Bell size={20} color="#737373" /> },
+        { label: 'Tracking de Tela', icon: <Eye size={20} color="#737373" /> },
+        { label: 'Tema', icon: <Contrast size={20} color="#737373" /> },
+        { label: 'Suporte', icon: <Headset size={20} color="#737373" /> },
+        { label: 'Termos de Uso', icon: <FileText size={20} color="#737373" /> },
+    ];
 
     return (
-        <SafeAreaView className="flex-1 bg-zinc-950 justify-center items-center p-6">
-            <View className="bg-zinc-900 p-6 rounded-full mb-4">
-                <User size={64} color="#dc2626" />
+        <SafeAreaView className="flex-1 bg-carbono-950">
+            {/* Header */}
+            <View className="flex-row items-center justify-between px-6 py-4">
+                <TouchableOpacity onPress={() => navigation.goBack()} className="p-2">
+                    <ArrowLeft size={24} color="#fff" />
+                </TouchableOpacity>
+                <Text className="text-white text-xl font-bold">Perfil</Text>
+                <TouchableOpacity className="p-2">
+                    <Bell size={24} color="#fff" />
+                </TouchableOpacity>
             </View>
-            <Text className="text-white text-xl font-bold">{user?.email}</Text>
-            <Text className="text-zinc-500 mt-2 mb-8">Perfil e Configurações</Text>
 
-            <TouchableOpacity
-                onPress={signOut}
-                className="bg-zinc-900 border border-zinc-800 w-full py-4 rounded-2xl items-center"
-            >
-                <Text className="text-red-500 font-bold">Sair da Conta</Text>
-            </TouchableOpacity>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+                {/* User Info Section */}
+                <View className="items-center mt-6">
+                    <View className="relative">
+                        <View className="p-1 rounded-full border-2 border-brasa-500">
+                            <Image
+                                source={{ uri: homeMockData.user.avatar }}
+                                className="w-28 h-28 rounded-full"
+                            />
+                        </View>
+                        <TouchableOpacity
+                            className="absolute bottom-0 right-0 bg-brasa-500 p-2 rounded-full border-2 border-carbono-950"
+                        >
+                            <Pencil size={16} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
+                    <Text className="text-white text-2xl font-bold mt-4">{homeMockData.user.name} Silva</Text>
+                    <Text className="text-neutro-400 text-sm">22 anos</Text>
+                </View>
+
+                {/* Statistics Grid */}
+                <View className="px-6 mt-10">
+                    <Text className="text-neutro-400 text-base font-semibold mb-4">Estatísticas</Text>
+                    <View className="flex-row flex-wrap justify-between">
+                        {stats.map((stat, index) => (
+                            <View
+                                key={index}
+                                className="bg-neutro-900 w-[48%] rounded-2xl p-4 mb-4 border border-neutro-800"
+                            >
+                                <Text className="text-neutro-500 text-sm mb-4">{stat.label}</Text>
+                                <View className="flex-row items-center justify-between">
+                                    <Text className="text-white text-xl font-bold">{stat.value}</Text>
+                                    {stat.icon}
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Plan Status Card */}
+                <View className="px-6 mt-4">
+                    <View className="bg-neutro-900 rounded-2xl p-6 border border-neutro-800">
+                        <View className="flex-row items-center justify-between mb-2">
+                            <Text className="text-white text-xl font-bold">Plano Básico</Text>
+                            <CheckCircle2 size={24} color="#ff4422" fill="#ff4422" />
+                        </View>
+                        <Text className="text-neutro-500 text-sm mb-6">Renovação: 28/03</Text>
+
+                        <TouchableOpacity
+                            className="bg-brasa-500 rounded-xl py-4 items-center"
+                            activeOpacity={0.8}
+                        >
+                            <Text className="text-white font-bold text-base">Fazer upgrade para PRO</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Preferences List */}
+                <View className="px-6 mt-10">
+                    <Text className="text-neutro-400 text-base font-semibold mb-4">Preferências</Text>
+                    <View className="bg-neutro-900 rounded-2xl overflow-hidden border border-neutro-800">
+                        {preferences.map((pref, index) => (
+                            <TouchableOpacity
+                                key={index}
+                                activeOpacity={0.7}
+                                className={`flex-row items-center justify-between p-4 px-6 ${index !== preferences.length - 1 ? 'border-b border-neutro-800' : ''
+                                    }`}
+                            >
+                                <View className="flex-row items-center">
+                                    {pref.icon}
+                                    <Text className="text-white text-base ml-4">{pref.label}</Text>
+                                </View>
+                                <ChevronRight size={20} color="#525252" />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Account Actions Box */}
+                <View className="px-6 mt-10">
+                    <View className="bg-neutro-900 rounded-2xl overflow-hidden border border-neutro-800">
+                        <TouchableOpacity
+                            onPress={signOut}
+                            activeOpacity={0.7}
+                            className="flex-row items-center justify-between p-4 px-6 border-b border-neutro-800"
+                        >
+                            <Text className="text-brasa-500 text-base font-bold">Sair</Text>
+                            <LogOut size={20} color="#ff4422" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            activeOpacity={0.7}
+                            className="flex-row items-center justify-between p-4 px-6"
+                        >
+                            <Text className="text-brasa-500 text-base font-bold">Deletar conta</Text>
+                            <Trash2 size={20} color="#ff4422" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </ScrollView>
         </SafeAreaView>
     );
 };

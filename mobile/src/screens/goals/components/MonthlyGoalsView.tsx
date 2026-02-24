@@ -1,64 +1,68 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { CheckCircle2, ChevronRight, Lock } from 'lucide-react-native';
+import { usePlanStore } from '../../../store/planStore';
 
 export const MonthlyGoalsView = () => {
+    const { plan } = usePlanStore();
+    const months = plan?.meses || [];
+
+    if (months.length === 0) {
+        return (
+            <View className="flex-1 items-center justify-center py-20">
+                <Text className="text-zinc-500 italic">Gere seu plano para ver as metas mensais.</Text>
+            </View>
+        );
+    }
+
     return (
         <View className="flex-1">
-            {/* Completed Month - JAN */}
-            <View className="bg-zinc-900/40 border border-zinc-800/50 rounded-3xl p-6 mb-4">
-                <View className="flex-row justify-between items-start mb-4">
-                    <View>
-                        <Text className="text-white text-3xl font-bold">JAN</Text>
-                        <Text className="text-emerald-500 font-bold mt-1">Concluído</Text>
-                    </View>
-                    <CheckCircle2 size={32} color="#10b981" />
-                </View>
+            {months.map((month, index) => {
+                const isCurrent = index === 0; // Current assumption: month 1 is current
 
-                <View className="mt-4">
-                    <View className="h-1.5 bg-emerald-500 rounded-full w-full" />
-                    <View className="flex-row justify-between mt-2">
-                        <Text className="text-zinc-500 text-[10px] font-bold">100%</Text>
-                        <Text className="text-zinc-500 text-[10px] font-bold">31/01</Text>
-                    </View>
-                </View>
-            </View>
+                if (isCurrent) {
+                    return (
+                        <TouchableOpacity
+                            key={index}
+                            activeOpacity={0.7}
+                            className="bg-zinc-900/40 border border-zinc-800/50 rounded-3xl p-6 mb-4"
+                        >
+                            <View className="flex-row justify-between items-start mb-4">
+                                <View className="flex-1 mr-4">
+                                    <Text className="text-white text-3xl font-bold">{month.titulo}</Text>
+                                    <Text className="text-orange-600 font-bold mt-1">Em andamento</Text>
+                                    <Text className="text-zinc-400 text-sm mt-3" numberOfLines={2}>{month.objetivo}</Text>
+                                </View>
+                                <ChevronRight size={32} color="#f97316" />
+                            </View>
 
-            {/* In Progress Month - FEV */}
-            <TouchableOpacity
-                activeOpacity={0.7}
-                className="bg-zinc-900/40 border border-zinc-800/50 rounded-3xl p-6 mb-4"
-            >
-                <View className="flex-row justify-between items-start mb-4">
-                    <View>
-                        <Text className="text-white text-3xl font-bold">FEV</Text>
-                        <Text className="text-orange-600 font-bold mt-1">Em andamento</Text>
-                    </View>
-                    <ChevronRight size={32} color="#f97316" />
-                </View>
+                            <View className="mt-4">
+                                <View className="h-1.5 bg-zinc-800/50 rounded-full overflow-hidden">
+                                    <View className="h-full bg-orange-600 rounded-full w-[0%]" />
+                                </View>
+                                <View className="flex-row justify-between mt-2">
+                                    <Text className="text-zinc-500 text-[10px] font-bold">0%</Text>
+                                    <Text className="text-zinc-500 text-[10px] font-bold">Iniciando</Text>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    );
+                }
 
-                <View className="mt-4">
-                    <View className="h-1.5 bg-zinc-800/50 rounded-full overflow-hidden">
-                        <View className="h-full bg-orange-600 rounded-full w-[67%]" />
+                return (
+                    <View key={index} className="bg-zinc-900/40 border border-zinc-800/50 rounded-3xl p-6 mb-4 opacity-40">
+                        <View className="flex-row justify-between items-start mb-4">
+                            <View className="flex-1 mr-4">
+                                <Text className="text-zinc-500 text-3xl font-bold">{month.titulo}</Text>
+                                <Text className="text-zinc-600 font-bold mt-1">Bloqueado</Text>
+                                <Text className="text-zinc-600 text-xs mt-2" numberOfLines={1}>{month.objetivo}</Text>
+                            </View>
+                            <Lock size={32} color="#3f3f46" />
+                        </View>
+                        <View className="h-1 bg-zinc-800/30 rounded-full w-full" />
                     </View>
-                    <View className="flex-row justify-between mt-2">
-                        <Text className="text-zinc-500 text-[10px] font-bold">67%</Text>
-                        <Text className="text-zinc-500 text-[10px] font-bold">8 Dias restantes</Text>
-                    </View>
-                </View>
-            </TouchableOpacity>
-
-            {/* Locked Month - MAR */}
-            <View className="bg-zinc-900/40 border border-zinc-800/50 rounded-3xl p-6 mb-4 opacity-40">
-                <View className="flex-row justify-between items-start mb-4">
-                    <View>
-                        <Text className="text-zinc-500 text-3xl font-bold">MAR</Text>
-                        <Text className="text-zinc-600 font-bold mt-1">Bloqueado</Text>
-                    </View>
-                    <Lock size={32} color="#3f3f46" />
-                </View>
-                <View className="h-1 bg-zinc-800/30 rounded-full w-full" />
-            </View>
+                );
+            })}
         </View>
     );
 };

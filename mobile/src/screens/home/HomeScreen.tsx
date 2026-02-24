@@ -22,13 +22,31 @@ const CATEGORY_TYPE_MAP: Record<string, string> = {
 };
 
 export const HomeScreen = () => {
-    const { plan, getDailyGoals } = usePlanStore();
+    const {
+        plan,
+        getDailyGoals,
+        getWorkout,
+        getMeals,
+        getHydration,
+        getBiohacking,
+        getAlphaTip,
+        toggleMeal,
+        toggleBiohacking,
+        hydrationCurrent,
+        incrementHydration,
+    } = usePlanStore();
+
+    // In a real scenario, we would calculate current day/week/month based on plan start date
+    // For now, we use the first day of the first week
+    const currentDay = 1;
+    const currentWeek = 1;
+    const currentMonth = 1;
 
     // Map real plan tasks to DailyGoalsCard format
     const goalsData = useMemo(() => {
         if (!plan) return homeMockData.goals;
 
-        const tasks = getDailyGoals(1, 1, 1);
+        const tasks = getDailyGoals(currentDay, currentWeek, currentMonth);
         const items = tasks.map((task, index) => ({
             id: String(index + 1),
             title: task.titulo,
@@ -36,12 +54,20 @@ export const HomeScreen = () => {
             type: CATEGORY_TYPE_MAP[task.categoria] || 'practice',
         }));
 
+        if (items.length === 0) return homeMockData.goals;
+
         return {
             completed: items.filter((i) => i.completed).length,
             total: items.length || 1,
-            items: items.length > 0 ? items : homeMockData.goals.items,
+            items: items,
         };
-    }, [plan]);
+    }, [plan, getDailyGoals]);
+
+    const workout = getWorkout(currentWeek, currentMonth);
+    const meals = getMeals(currentWeek, currentMonth);
+    const hydrationTarget = getHydration(currentWeek, currentMonth);
+    const biohacking = getBiohacking(currentWeek, currentMonth);
+    const alphaTip = getAlphaTip(currentWeek, currentMonth);
 
     return (
         <SafeAreaView className="flex-1 bg-zinc-950">
@@ -64,24 +90,40 @@ export const HomeScreen = () => {
                 />
 
                 <WorkoutCard
-                    title={homeMockData.workout.title}
-                    exercises={homeMockData.workout.exercises}
-                    duration={homeMockData.workout.duration}
+                    title={workout?.titulo}
+                    exercises={workout?.exercicios}
+                    duration={workout?.duracao}
                 />
 
-                <MealsCard items={homeMockData.meals.items} />
+                <MealsCard
+                    items={meals.map(m => ({
+                        title: m.titulo,
+                        time: m.horario,
+                        completed: m.concluida
+                    }))}
+                    onToggleMeal={(index) => toggleMeal(index, currentDay, currentWeek, currentMonth)}
+                />
 
                 <HydrationCard
-                    current={homeMockData.hydration.current}
-                    target={homeMockData.hydration.target}
+                    current={hydrationCurrent}
+                    target={hydrationTarget}
+                    onAdd={incrementHydration}
                 />
 
-                <BioHackingCard items={homeMockData.biohacking.items} />
-
-                <AlphaTipCard
-                    title={homeMockData.alphaTip.title}
-                    content={homeMockData.alphaTip.content}
+                <BioHackingCard
+                    items={biohacking.map(i => ({
+                        title: i.titulo,
+                        completed: i.concluida
+                    }))}
+                    onToggleItem={(index) => toggleBiohacking(index, currentDay, currentWeek, currentMonth)}
                 />
+
+                {alphaTip && (
+                    <AlphaTipCard
+                        title="Dica Alfa semanal"
+                        content={alphaTip}
+                    />
+                )}
 
                 <DailyQuizCard
                     availableIn={homeMockData.dailyQuiz.availableIn}

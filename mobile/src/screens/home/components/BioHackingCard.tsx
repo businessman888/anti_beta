@@ -1,44 +1,56 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Zap, CheckCircle2, Circle } from 'lucide-react-native';
 
 interface BioHackingItemProps {
     title: string;
     completed: boolean;
+    onToggle?: () => void;
 }
 
-const BioHackingItem = ({ title, completed }: BioHackingItemProps) => {
+const BioHackingItem = ({ title, completed, onToggle }: BioHackingItemProps) => {
     return (
-        <View className="flex-row items-center mb-6">
-            {completed ? (
-                <View className="bg-orange-600 rounded-lg p-1">
-                    <CheckCircle2 size={16} color="white" />
-                </View>
-            ) : (
-                <View className="w-6 h-6 rounded-lg border-2 border-zinc-800" />
-            )}
-            <Text className={`ml-4 text-base font-medium ${completed ? 'text-white' : 'text-zinc-500'}`}>
+        <TouchableOpacity
+            onPress={onToggle}
+            activeOpacity={0.7}
+            className="flex-row items-center mb-6 last:mb-0"
+        >
+            <View className="mr-3">
+                {completed ? (
+                    <CheckCircle2 size={24} color="#22c55e" strokeWidth={3} />
+                ) : (
+                    <Circle size={24} color="#3f3f46" />
+                )}
+            </View>
+            <Text className={`text-lg flex-1 font-medium ${completed ? 'text-zinc-600 line-through' : 'text-zinc-100'}`}>
                 {title}
             </Text>
-        </View>
+        </TouchableOpacity>
     );
 };
 
 interface BioHackingCardProps {
-    items: BioHackingItemProps[];
+    items: Omit<BioHackingItemProps, 'onToggle'>[];
+    onToggleItem?: (index: number) => void;
 }
 
-export const BioHackingCard = ({ items }: BioHackingCardProps) => {
+export const BioHackingCard = ({ items, onToggleItem }: BioHackingCardProps) => {
     return (
-        <View className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 mb-4">
+        <View className="bg-zinc-900 border border-zinc-800/50 rounded-3xl p-6 mb-4">
             <View className="flex-row items-center mb-8">
-                <Zap size={20} color="#f97316" fill="#f97316" />
-                <Text className="text-white font-bold text-xl ml-3">Bio Hacking</Text>
+                <View className="bg-orange-600/10 p-2 rounded-xl mr-3">
+                    <Zap size={20} color="#f97316" fill="#f97316" />
+                </View>
+                <Text className="text-white font-bold text-xl">Bio Hacking</Text>
             </View>
 
             <View>
                 {items.map((item, index) => (
-                    <BioHackingItem key={index} {...item} />
+                    <BioHackingItem
+                        key={index}
+                        {...item}
+                        onToggle={() => onToggleItem?.(index)}
+                    />
                 ))}
             </View>
         </View>

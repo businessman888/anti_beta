@@ -17,7 +17,7 @@ export const GoalItem = ({ title, completed, type }: GoalItemProps) => {
             return <HelpCircle size={20} color="#71717a" />;
         }
         if (completed) {
-            return <CheckCircle2 size={20} color="#22c55e" />;
+            return <CheckCircle2 size={20} color="#22c55e" strokeWidth={3} />;
         }
         return <Circle size={20} color="#71717a" />;
     };

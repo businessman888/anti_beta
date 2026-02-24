@@ -1,6 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Info } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../../types/navigation';
 
 interface AlphaTipCardProps {
     title: string;
@@ -8,8 +11,14 @@ interface AlphaTipCardProps {
 }
 
 export const AlphaTipCard = ({ title, content }: AlphaTipCardProps) => {
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
     return (
-        <View className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 mb-4">
+        <TouchableOpacity
+            onPress={() => navigation.navigate('WeeklyTip')}
+            activeOpacity={0.9}
+            className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-6 mb-4"
+        >
             <View className="flex-row items-center mb-6">
                 <View className="bg-orange-600/20 p-1.5 rounded-lg mr-3">
                     <Info size={16} color="#f97316" fill="#f97316" />
@@ -21,9 +30,9 @@ export const AlphaTipCard = ({ title, content }: AlphaTipCardProps) => {
                 {content}
             </Text>
 
-            <TouchableOpacity className="border border-orange-600/30 bg-zinc-900/50 py-4 rounded-2xl items-center">
+            <View className="border border-orange-600/30 bg-zinc-900/50 py-4 rounded-2xl items-center">
                 <Text className="text-orange-500 font-bold">Ver tudo</Text>
-            </TouchableOpacity>
-        </View>
+            </View>
+        </TouchableOpacity>
     );
 };

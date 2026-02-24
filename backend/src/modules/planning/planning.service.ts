@@ -139,6 +139,22 @@ Retorne APENAS um JSON válido (sem texto, sem markdown, sem code blocks) com es
         {
           "numero": 1,
           "foco": "string curto",
+          "dica_alfa_semanal": "string - frase motivacional curta",
+          "hidratacao": { "meta_litros": 2.0 },
+          "biohacking": [
+            { "titulo": "Banho gelado", "concluida": false },
+            { "titulo": "Exposição solar (15 min)", "concluida": false }
+          ],
+          "treino_dia": {
+            "titulo": "string curto (ex: Peito e Tríceps)",
+            "exercicios": 6,
+            "duracao": "45 min"
+          },
+          "refeicoes": [
+            { "titulo": "Café da manhã", "horario": "07:00", "concluida": false },
+            { "titulo": "Almoço", "horario": "12:00", "concluida": false },
+            { "titulo": "Jantar", "horario": "19:00", "concluida": false }
+          ],
           "dias": [
             {
               "dia": 1,
@@ -146,42 +162,40 @@ Retorne APENAS um JSON válido (sem texto, sem markdown, sem code blocks) com es
                 {
                   "categoria": "treino | alimentacao | habito | mindset | social",
                   "titulo": "string curto",
-                  "descricao": "max 15 palavras, ação específica",
+                  "descricao": "max 15 palavras",
                   "concluida": false
                 }
               ]
             }
           ]
         },
-        { "numero": 2, "foco": "string", "objetivos_principais": ["string", "string"] },
-        { "numero": 3, "foco": "string", "objetivos_principais": ["string", "string"] },
-        { "numero": 4, "foco": "string", "objetivos_principais": ["string", "string"] }
+        { "numero": 2, "foco": "string", "objetivos_principais": ["string"] },
+        { "numero": 3, "foco": "string", "objetivos_principais": ["string"] },
+        { "numero": 4, "foco": "string", "objetivos_principais": ["string"] }
       ]
     },
     {
       "numero": 2,
       "titulo": "string",
       "objetivo": "string",
-      "pontos_chave": ["string", "string", "string"]
+      "pontos_chave": ["string"]
     },
     {
       "numero": 3,
       "titulo": "string",
       "objetivo": "string",
-      "pontos_chave": ["string", "string", "string"]
+      "pontos_chave": ["string"]
     }
   ]
 }
 
 REGRAS:
-1. MÊS 1, SEMANA 1: 7 dias com EXATAMENTE 3 tarefas por dia (uma de treino/físico, uma de mindset/hábito, uma social/alimentação)
-2. Semanas 2-4 do mês 1: apenas foco e 2 objetivos_principais
-3. Meses 2 e 3: apenas título, objetivo e 3 pontos_chave
-4. Tarefas ESPECÍFICAS e ACIONÁVEIS, descrições CURTAS (max 15 palavras)
-5. Adapte ao perfil do usuário
-6. Considere restrições físicas e acesso a academia
-7. Linguagem direta, motivacional, tough love
-8. SOMENTE JSON, sem texto antes ou depois, sem code blocks`;
+1. MÊS 1, SEMANA 1: Deve conter o cronograma DETALHADO (treino_dia, refeicoes, hidratacao, biohacking, dica_alfa_semanal) e os 7 dias com 3 tarefas cada.
+2. Semanas 2-4 do mês 1: apenas foco e 2 objetivos_principais.
+3. Meses 2 e 3: apenas título, objetivo e 3 pontos_chave.
+4. Tarefas ESPECÍFICAS e ACIONÁVEIS, descrições CURTAS (max 15 palavras).
+5. Adapte ao perfil do usuário.
+6. SOMENTE JSON, sem texto antes ou depois, sem code blocks.`;
   }
 
   private buildUserPrompt(answers: Record<string, any>): string {
