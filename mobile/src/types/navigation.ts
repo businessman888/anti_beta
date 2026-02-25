@@ -12,6 +12,7 @@ export type RootStackParamList = {
     Achievements: undefined;
     WeeklyTip: undefined;
     Profile: undefined;
+    Agenda: undefined;
 };
 
 export type MainTabParamList = {

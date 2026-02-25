@@ -2,24 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import { ChevronLeft, Calendar, Play, Pause, CheckCircle2, Circle, Timer } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../types/navigation';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
+import { workoutService, Workout } from '../../services/workoutService';
+import { useAuthStore } from '../../store/authStore';
 
 export const WorkoutScreen = () => {
-    const navigation = useNavigation();
-    const [seconds, setSeconds] = useState(2535); // 00:42:15 in seconds
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    const { user } = useAuthStore();
+    const [seconds, setSeconds] = useState(0);
     const [isActive, setIsActive] = useState(false);
+    const [workout, setWorkout] = useState<Workout | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        let interval: any = null;
-        if (isActive) {
-            interval = setInterval(() => {
-                setSeconds((seconds) => seconds + 1);
-            }, 1000);
-        } else if (!isActive && seconds !== 0) {
-            clearInterval(interval);
-        }
-        return () => clearInterval(interval);
-    }, [isActive, seconds]);
+        const loadWorkout = async () => {
+            const today = new Date();
+            const type = workoutService.getWorkoutTypeForDate(today);
+            const monthIndex = workoutService.getMonthIndex(user?.created_at);
+
+            if (type) {
+                const data = await workoutService.fetchWorkout(type, monthIndex);
+                setWorkout(data);
+            }
+            setLoading(false);
+        };
+        loadWorkout();
+    }, [user?.created_at]);
 
     const formatTime = (totalSeconds: number) => {
         const hrs = Math.floor(totalSeconds / 3600);
@@ -35,7 +45,7 @@ export const WorkoutScreen = () => {
                     <ChevronLeft size={24} color="#ffffff" />
                 </TouchableOpacity>
                 <Text className="text-white text-xl font-bold">Treino A</Text>
-                <TouchableOpacity className="p-2">
+                <TouchableOpacity onPress={() => navigation.navigate('Agenda')} className="p-2">
                     <Calendar size={24} color="#ffffff" />
                 </TouchableOpacity>
             </View>
@@ -65,43 +75,28 @@ export const WorkoutScreen = () => {
 
                 {/* Exercises Section */}
                 <View className="gap-4 pb-10">
-                    {/* Exercise Card 1 - Completed */}
-                    <ExerciseCard
-                        title="Crucifixo"
-                        subtitle="Máquina polia"
-                        status="Concluído"
-                        statusColor="text-orange-600"
-                        sets="3x"
-                        reps="15"
-                        rest="60s"
-                        progress="3/3"
-                        completed
-                    />
-
-                    {/* Exercise Card 2 - In Execution */}
-                    <ExerciseCard
-                        title="Supino Reto"
-                        subtitle="supino plano com barra"
-                        status="Em Execução"
-                        statusColor="text-orange-600"
-                        sets="4x"
-                        reps="12"
-                        rest="90s"
-                        progress="1/4"
-                        active
-                    />
-
-                    {/* Exercise Card 3 - Pending */}
-                    <ExerciseCard
-                        title="Tríceps Polia"
-                        subtitle="Tríceps polia"
-                        status="Pendente"
-                        statusColor="text-zinc-500"
-                        sets="4x"
-                        reps="12"
-                        rest="60s"
-                        progress="0/4"
-                    />
+                    {workout?.workout_exercise_details.map((detail, index) => (
+                        <ExerciseCard
+                            key={detail.id}
+                            title={detail.exercises.name}
+                            subtitle={detail.exercises.muscle_group}
+                            status={index === 0 ? "Em Execução" : "Pendente"}
+                            statusColor={index === 0 ? "text-orange-600" : "text-zinc-500"}
+                            sets={`${detail.sets}x`}
+                            reps={detail.reps}
+                            rest={`${detail.rest_seconds}s`}
+                            progress={`0/${detail.sets}`}
+                            weight={`${detail.weight_kg}kg`}
+                            active={index === 0}
+                            detail={detail}
+                        />
+                    ))}
+                    {!workout && !loading && (
+                        <View className="items-center py-20">
+                            <Text className="text-white text-xl font-bold mb-2">Descanso programado</Text>
+                            <Text className="text-zinc-500">Nenhum treino programado para hoje.</Text>
+                        </View>
+                    )}
                 </View>
             </ScrollView>
 
@@ -125,7 +120,8 @@ const ExerciseCard = ({
     rest,
     progress,
     completed = false,
-    active = false
+    active = false,
+    detail
 }: any) => {
     return (
         <View className={`bg-zinc-900/80 border ${active ? 'border-orange-600/50' : 'border-zinc-800'} rounded-3xl p-6`}>
@@ -180,12 +176,12 @@ const ExerciseCard = ({
 
             {/* Sets Detail Table */}
             <View className="gap-2">
-                {[1, 2, 3].map((set) => (
-                    <View key={set} className="bg-zinc-800/50 flex-row items-center justify-between p-4 rounded-xl">
-                        <Text className="text-zinc-500 font-bold text-xs uppercase">SET {set}</Text>
-                        <Text className="text-zinc-300 font-medium">60kg</Text>
-                        <Text className="text-zinc-300 font-medium">12reps</Text>
-                        {completed || (active && set === 1) ? (
+                {Array.from({ length: detail?.sets || 0 }).map((_, i) => (
+                    <View key={i} className="bg-zinc-800/50 flex-row items-center justify-between p-4 rounded-xl">
+                        <Text className="text-zinc-500 font-bold text-xs uppercase">SET {i + 1}</Text>
+                        <Text className="text-zinc-300 font-medium">{detail?.weight_kg || 0}kg</Text>
+                        <Text className="text-zinc-300 font-medium">{detail?.reps || 0}reps</Text>
+                        {completed || (active && i === 0) ? (
                             <View className="bg-orange-600 rounded-full p-1">
                                 <CheckCircle2 size={16} color="#ffffff" />
                             </View>
