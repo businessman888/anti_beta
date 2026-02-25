@@ -2,6 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { ChevronLeft, ChevronRight, Bell, Timer, Scale, ArrowRight, CheckCircle2, XCircle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import dayjs from 'dayjs';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+
+dayjs.extend(isSameOrAfter);
 import { WorkoutDetailModal } from './components/WorkoutDetailModal';
 import { workoutService, Workout } from '../../services/workoutService';
 import { useAuthStore } from '../../store/authStore';
@@ -19,6 +23,7 @@ export const AgendaScreen = () => {
     const [nextWorkout, setNextWorkout] = useState<Workout | null>(null);
     const [monthWorkouts, setMonthWorkouts] = useState<Record<string, Workout | null>>({});
     const [loading, setLoading] = useState(true);
+    const [profileCreatedAt, setProfileCreatedAt] = useState<string | undefined>(undefined);
 
     const months = [
         'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -51,7 +56,7 @@ export const AgendaScreen = () => {
         setViewDate(newDate);
     };
 
-    const monthIndex = useMemo(() => workoutService.getMonthIndex(user?.created_at), [user?.created_at]);
+    const monthIndex = useMemo(() => workoutService.getMonthIndex(profileCreatedAt), [profileCreatedAt]);
 
     useEffect(() => {
         const loadInitialData = async () => {
@@ -60,6 +65,7 @@ export const AgendaScreen = () => {
             const workouts: Record<string, Workout | null> = {};
 
             for (const t of types) {
+                // Fetch workout templates for the month without date restriction for indicators
                 workouts[t] = await workoutService.fetchWorkout(t, monthIndex);
             }
             setMonthWorkouts(workouts);
@@ -70,9 +76,14 @@ export const AgendaScreen = () => {
 
     useEffect(() => {
         const fetchDayData = async () => {
+            const createdAt = await workoutService.getProfileCreatedAt(user?.id);
+            setProfileCreatedAt(createdAt);
+
+            const monthIdx = workoutService.getMonthIndex(createdAt);
+
             const type = workoutService.getWorkoutTypeForDate(selectedDate);
             if (type) {
-                const workout = await workoutService.fetchWorkout(type, monthIndex);
+                const workout = await workoutService.fetchWorkout(type, monthIdx, selectedDate, createdAt);
                 setDayWorkout(workout);
             } else {
                 setDayWorkout(null);
@@ -83,7 +94,7 @@ export const AgendaScreen = () => {
             tomorrow.setDate(tomorrow.getDate() + 1);
             const nextType = workoutService.getWorkoutTypeForDate(tomorrow);
             if (nextType) {
-                const nextW = await workoutService.fetchWorkout(nextType, monthIndex);
+                const nextW = await workoutService.fetchWorkout(nextType, monthIdx, tomorrow, createdAt);
                 setNextWorkout(nextW);
             } else {
                 setNextWorkout(null);
@@ -98,6 +109,14 @@ export const AgendaScreen = () => {
     }, [dayWorkout]);
 
     const getIndicatorsForDate = (date: Date) => {
+        if (!profileCreatedAt) return [];
+
+        const isVisible = dayjs(date).isSameOrAfter(dayjs(profileCreatedAt), 'day');
+
+        console.log(`Comparing ${dayjs(date).format('YYYY-MM-DD')} with profile creation ${dayjs(profileCreatedAt).format('YYYY-MM-DD')}. Result: ${isVisible}`);
+
+        if (!isVisible) return [];
+
         const type = workoutService.getWorkoutTypeForDate(date);
         if (!type) return [];
 
@@ -106,7 +125,7 @@ export const AgendaScreen = () => {
 
         const indicators = [];
         const isSuperiores = workout.workout_exercise_details.some(ed =>
-            ['Peito', 'Costas', 'Ombros', 'Biceps', 'Triceps'].includes(ed.exercises.muscle_group)
+            ['Peito', 'Costas', 'Ombros', 'Bíceps', 'Tríceps'].includes(ed.exercises.muscle_group)
         );
         const isInferiores = workout.workout_exercise_details.some(ed =>
             ['Pernas', 'Glúteos', 'Panturrilha'].includes(ed.exercises.muscle_group)
@@ -116,6 +135,15 @@ export const AgendaScreen = () => {
         if (isSuperiores) indicators.push('superiores');
         return indicators;
     };
+
+    if (!profileCreatedAt || loading) {
+        return (
+            <SafeAreaView className="flex-1 bg-zinc-950 items-center justify-center">
+                <ActivityIndicator size="large" color="#f97316" />
+                <Text className="text-zinc-500 mt-4 font-medium">Carregando sua jornada...</Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView className="flex-1 bg-zinc-950">
@@ -235,10 +263,7 @@ export const AgendaScreen = () => {
                 <View className="mb-4">
                     <View className="flex-row items-center justify-between mb-4">
                         <View>
-                            <View className="flex-row items-center gap-2 mb-1">
-                                <View className="size-1.5 bg-orange-600 rounded-full" />
-                                <Text className="text-orange-600 text-xs font-bold uppercase">Hoje, 12 SET</Text>
-                            </View>
+
                             <Text className="text-white text-xl font-bold">Treinos do dia</Text>
                         </View>
                     </View>
@@ -258,21 +283,23 @@ export const AgendaScreen = () => {
                                     </View>
                                     {dayWorkout ? (
                                         <>
-                                            <Text className="text-white text-xl font-bold mb-2">{dayWorkout.description || `Treino ${dayWorkout.workout_type}`}</Text>
+                                            <Text className="text-white text-xl font-bold mb-2">
+                                                {dayWorkout.description || `Treino ${dayWorkout.workout_type}`}
+                                            </Text>
                                             <Text className="text-zinc-500 text-xs leading-4">
-                                                Foco em {dayWorkout.workout_exercise_details?.map(e => e.exercises.name).join(', ').slice(0, 50)}...
+                                                {`Foco em ${dayWorkout.workout_exercise_details?.map(e => e.exercises.name).join(', ').slice(0, 50)}...`}
                                             </Text>
 
                                             <View className="flex-row gap-4 mt-4">
                                                 <View className="flex-row items-center gap-1.5">
                                                     <Timer size={14} color="#f5f5f5" />
                                                     <Text className="text-white text-xs font-medium">
-                                                        {dayWorkout.workout_exercise_details.reduce((acc, curr) => acc + (curr.rest_seconds || 0), 0) / 60 + 30} min
+                                                        {`${dayWorkout.workout_exercise_details.reduce((acc, curr) => acc + (curr.rest_seconds || 0), 0) / 60 + 30} min`}
                                                     </Text>
                                                 </View>
                                                 <View className="flex-row items-center gap-1.5">
                                                     <Scale size={14} color="#f5f5f5" />
-                                                    <Text className="text-white text-xs font-medium">{totalVolume} kg</Text>
+                                                    <Text className="text-white text-xs font-medium">{`${totalVolume} kg`}</Text>
                                                 </View>
                                             </View>
                                         </>
@@ -299,7 +326,9 @@ export const AgendaScreen = () => {
                             disabled={!dayWorkout}
                             className="bg-zinc-950/50 flex-row items-center justify-between px-6 py-4 border-t border-zinc-800"
                         >
-                            <Text className="text-white font-medium">{dayWorkout ? 'Ver detalhes do treino' : 'Sem treino para este dia'}</Text>
+                            <Text className="text-white font-medium">
+                                {dayWorkout ? 'Ver detalhes do treino' : 'Sem treino para este dia'}
+                            </Text>
                             <ArrowRight size={20} color="#ffffff" />
                         </TouchableOpacity>
                     </View>

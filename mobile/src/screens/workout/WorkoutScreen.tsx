@@ -18,9 +18,10 @@ export const WorkoutScreen = () => {
 
     useEffect(() => {
         const loadWorkout = async () => {
+            const createdAt = await workoutService.getProfileCreatedAt(user?.id);
             const today = new Date();
             const type = workoutService.getWorkoutTypeForDate(today);
-            const monthIndex = workoutService.getMonthIndex(user?.created_at);
+            const monthIndex = workoutService.getMonthIndex(createdAt);
 
             if (type) {
                 const data = await workoutService.fetchWorkout(type, monthIndex);
@@ -29,7 +30,7 @@ export const WorkoutScreen = () => {
             setLoading(false);
         };
         loadWorkout();
-    }, [user?.created_at]);
+    }, [user?.id]);
 
     const formatTime = (totalSeconds: number) => {
         const hrs = Math.floor(totalSeconds / 3600);
