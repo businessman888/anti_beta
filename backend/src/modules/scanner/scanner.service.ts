@@ -15,7 +15,7 @@ export class ScannerService {
     }
 
     async analyzeImage(dto: AnalyzeImageDto) {
-        const { imageBase64, imageType, userId } = dto;
+        const { imageBase64, imageType, userId, imageUrl } = dto;
 
         this.logger.log(`Analyzing image for user: ${userId || 'anonymous'}`);
 
@@ -35,7 +35,8 @@ Inicie SEMPRE com a frase padrão baseada na temperatura:
 Use referências ao meme 'não sobrou nada para o betinha'.
 Seja direto, use lógica fria e dê uma sugestão de resposta curta e impactante.
 
-Retorne APENAS um objeto JSON com os campos: temperatura, interesse, frase_padrao, analise_detalhada, sugestao_resposta. 
+Retorne APENAS um objeto JSON com os campos EXATOS: beta_temperature, interest_score, frase_padrao, analise_detalhada, sugestao_resposta. 
+Nota: interest_score deve ser um número de 0 a 10 (float permitido).
 Não inclua explicações fora do JSON.`;
 
         try {
@@ -78,6 +79,27 @@ Não inclua explicações fora do JSON.`;
             } catch (parseError) {
                 this.logger.error('Failed to parse AI response as JSON');
                 throw new Error('Failed to parse analysis from AI response');
+            }
+
+            // Persist to database if userId and imageUrl are provided
+            if (userId && imageUrl) {
+                try {
+                    await this.prisma.scannerAnalysis.create({
+                        data: {
+                            userId: userId,
+                            imageUrl: imageUrl,
+                            frase_padrao: analysisJson.frase_padrao,
+                            analise_detalhada: analysisJson.analise_detalhada,
+                            sugestao_resposta: analysisJson.sugestao_resposta,
+                            beta_temperature: Number(analysisJson.beta_temperature),
+                            interest_score: Number(analysisJson.interest_score),
+                        },
+                    });
+                    this.logger.log(`Analysis saved for user ${userId}`);
+                } catch (dbError) {
+                    this.logger.error(`Failed to save analysis: ${dbError.message}`);
+                    // We don't throw here to ensure the user gets the analysis even if DB save fails
+                }
             }
 
             return analysisJson;

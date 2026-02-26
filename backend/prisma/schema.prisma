@@ -44,8 +44,24 @@ model User {
   goals               Goal[]
   tasks               Task[]
   onboardingResponses OnboardingResponse[]
+  scannerAnalyses     ScannerAnalysis[]
 
   @@map("users")
+}
+
+model ScannerAnalysis {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  user              User     @relation(fields: [userId], references: [id])
+  imageUrl          String   @map("image_url")
+  frase_padrao      String
+  analise_detalhada String
+  sugestao_resposta String
+  beta_temperature  Float
+  interest_score    Float
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("scanner_analyses")
 }
 
 model UserProfile {

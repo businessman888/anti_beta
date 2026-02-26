@@ -3,8 +3,8 @@ import { supabase } from '../lib/supabase';
 import { apiClient } from './api/client';
 
 export interface ScannerAnalysisResult {
-    temperatura: number;
-    interesse: number;
+    beta_temperature: number;
+    interest_score: number;
     frase_padrao: string;
     analise_detalhada: string;
     sugestao_resposta: string;
@@ -66,15 +66,16 @@ export const scannerService = {
 
         return publicUrl;
     },
-
     /**
-     * Performs analysis using Backend API (which uses Anthropic)
+     * Performs analysis and persists result via Backend API
      */
-    async analyzeConversation(base64Image: string, imageType: string): Promise<ScannerAnalysisResult> {
+    async analyzeAndSave(base64Image: string, imageType: string, userId: string, imageUrl: string): Promise<ScannerAnalysisResult> {
         try {
             const response = await apiClient.post<ScannerAnalysisResult>('/scanner/analyze', {
                 imageBase64: base64Image,
                 imageType: imageType,
+                userId: userId,
+                imageUrl: imageUrl
             });
 
             return response.data;
@@ -82,28 +83,6 @@ export const scannerService = {
             console.error('Backend Analysis Error:', error);
             throw new Error(error?.response?.data?.message || 'Ocorreu um erro ao analisar a conversa com a IA');
         }
-    },
-
-    /**
-     * Persists analysis result to Supabase
-     */
-    async saveAnalysis(userId: string, imageUrl: string, result: ScannerAnalysisResult) {
-        const { data, error } = await supabase
-            .from('scanner_analyses')
-            .insert({
-                user_id: userId,
-                image_url: imageUrl,
-                frase_padrao: result.frase_padrao,
-                analise_detalhada: result.analise_detalhada,
-                sugestao_resposta: result.sugestao_resposta,
-                beta_temperature: result.temperatura,
-                interest_score: result.interesse,
-            })
-            .select()
-            .single();
-
-        if (error) throw error;
-        return data;
     },
 
     /**

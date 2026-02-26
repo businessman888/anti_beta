@@ -12,4 +12,8 @@ export class AnalyzeImageDto {
     @IsString()
     @IsOptional()
     userId?: string;
+
+    @IsString()
+    @IsOptional()
+    imageUrl?: string;
 }

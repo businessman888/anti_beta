@@ -56,14 +56,11 @@ export const ScannerAlphaScreen = () => {
 
             setLoading(true);
 
-            // 1. Analyze with AI
-            const analysis = await scannerService.analyzeConversation(image.base64, image.type);
-
-            // 2. Upload image
+            // 1. Upload image first to get URL
             const publicUrl = await scannerService.uploadImage(image.uri, image.type);
 
-            // 3. Save to database
-            await scannerService.saveAnalysis(user.id, publicUrl, analysis);
+            // 2. Analyze and Save in one step via Backend
+            const analysis = await scannerService.analyzeAndSave(image.base64, image.type, user.id, publicUrl);
 
             setCurrentResult(analysis);
             setShowResultModal(true);
@@ -90,8 +87,8 @@ export const ScannerAlphaScreen = () => {
                 activeOpacity={0.7}
                 onPress={() => {
                     setCurrentResult({
-                        temperatura: item.beta_temperature,
-                        interesse: item.interest_score,
+                        beta_temperature: item.beta_temperature,
+                        interest_score: item.interest_score,
                         frase_padrao: item.frase_padrao,
                         analise_detalhada: item.analise_detalhada,
                         sugestao_resposta: item.sugestao_resposta
@@ -265,11 +262,11 @@ export const ScannerAlphaScreen = () => {
                                     <View className="flex-row mb-6">
                                         <View className="flex-1 bg-zinc-900/50 rounded-3xl p-5 mr-3 items-center">
                                             <Text className="text-zinc-400 text-[10px] font-bold uppercase mb-1">Temp. Beta</Text>
-                                            <Text className="text-white font-bold text-2xl">{currentResult.temperatura.toFixed(1)}</Text>
+                                            <Text className="text-white font-bold text-2xl">{currentResult.beta_temperature.toFixed(1)}</Text>
                                         </View>
                                         <View className="flex-1 bg-zinc-900/50 rounded-3xl p-5 items-center">
                                             <Text className="text-zinc-400 text-[10px] font-bold uppercase mb-1">Interesse</Text>
-                                            <Text className="text-white font-bold text-2xl">{currentResult.interesse}/10</Text>
+                                            <Text className="text-white font-bold text-2xl">{currentResult.interest_score}/10</Text>
                                         </View>
                                     </View>
 
