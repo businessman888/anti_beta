@@ -72,15 +72,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             if (profile) set({ profile });
             set({ onboardingCompleted: hasPlan });
 
-            console.log("User data loaded for:", userId);
-            console.log("Has Plan:", hasPlan);
+            console.log("[AuthStore] User data loaded for:", userId);
+            console.log("[AuthStore] Has Plan:", hasPlan);
 
             // If onboarded, fetch the full plan data
             if (hasPlan) {
-                await usePlanStore.getState().fetchUserPlan(userId);
+                try {
+                    await usePlanStore.getState().fetchUserPlan(userId);
+                } catch (planError) {
+                    console.error("[AuthStore] Error fetching plan data:", planError);
+                }
             }
         } catch (error) {
-            console.error("Error loading user data:", error);
+            console.error("[AuthStore] Error loading user data:", error);
+            // Default to not onboarded on failure to be safe, or should we handle this differently?
+            set({ onboardingCompleted: false });
         } finally {
             set({ isLoading: false });
         }
