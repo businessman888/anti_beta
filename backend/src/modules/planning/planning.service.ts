@@ -111,6 +111,70 @@ export class PlanningService {
     }
   }
 
+  async getPlanStatus(userId: string): Promise<{ hasPlan: boolean }> {
+    this.logger.log(`Checking plan status for user: ${userId}`);
+    const plan = await this.prisma.plan.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    return { hasPlan: !!plan };
+  }
+
+  async getPlanByUserId(userId: string) {
+    this.logger.log(`Fetching plan for user: ${userId}`);
+    try {
+      const plan = await this.prisma.plan.findUnique({
+        where: { userId },
+      });
+
+      if (!plan) {
+        this.logger.log(`No plan found for user: ${userId}`);
+        return null;
+      }
+
+      return plan;
+    } catch (error: any) {
+      this.logger.error(`Error fetching plan for user ${userId}: ${error.message}`);
+      return null;
+    }
+  }
+
+  async completeTask(userId: string, taskId: string) {
+    this.logger.log(`Marking task ${taskId} as completed for user ${userId}`);
+    try {
+      return await this.prisma.dailyCompletion.create({
+        data: {
+          userId,
+          taskId,
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        this.logger.warn(`Task ${taskId} already completed today for user ${userId}`);
+        return { message: 'Already completed today' };
+      }
+      this.logger.error(`Error completing task ${taskId} for user ${userId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async getDailyCompletions(userId: string) {
+    this.logger.log(`Fetching daily completions for user: ${userId}`);
+    const today = new Date();
+    // Use the start of the day in local time or UTC depending on requirements
+    // For now, let's just use what Prisma/Postgres CURRENT_DATE provides
+
+    return this.prisma.dailyCompletion.findMany({
+      where: {
+        userId,
+        completedAt: {
+          equals: today,
+        },
+      },
+    });
+  }
+
   private buildSystemPrompt(): string {
     return `Você é o Agente de Planejamento do Antibeta, especializado em criar planos de transformação masculina personalizados.
 

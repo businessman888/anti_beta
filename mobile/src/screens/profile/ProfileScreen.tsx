@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
     ArrowLeft,
@@ -20,12 +20,52 @@ import {
     ChevronRight
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { homeMockData } from '../../mocks/homeMock';
 import { useAuthStore } from '../../store/authStore';
+import { profileService } from '../../services/profileService';
 
 export const ProfileScreen = () => {
     const navigation = useNavigation();
-    const { signOut } = useAuthStore();
+    const { signOut, user, profile, refreshProfile } = useAuthStore();
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handlePickImage = async () => {
+        if (!user) return;
+
+        // Request permissions
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permissão necessária', 'Precisamos de acesso às suas fotos para trocar o avatar.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+            const selectedImage = result.assets[0];
+            setIsUploading(true);
+            try {
+                const publicUrl = await profileService.uploadAvatar(user.id, selectedImage.uri);
+                if (publicUrl) {
+                    await refreshProfile();
+                    Alert.alert('Sucesso', 'Foto de perfil atualizada!');
+                } else {
+                    Alert.alert('Erro', 'Não foi possível fazer o upload da imagem.');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                Alert.alert('Erro', 'Ocorreu um erro ao atualizar a foto.');
+            } finally {
+                setIsUploading(false);
+            }
+        }
+    };
 
     // Stats data
     const stats = [
@@ -45,6 +85,9 @@ export const ProfileScreen = () => {
         { label: 'Termos de Uso', icon: <FileText size={20} color="#737373" /> },
     ];
 
+    const userDisplayName = profile?.full_name || user?.email?.split('@')[0] || 'Usuário';
+    const userAvatar = profile?.avatar_url || homeMockData.user.avatar;
+
     return (
         <SafeAreaView className="flex-1 bg-carbono-950">
             {/* Header */}
@@ -63,19 +106,27 @@ export const ProfileScreen = () => {
                 <View className="items-center mt-6">
                     <View className="relative">
                         <View className="p-1 rounded-full border-2 border-brasa-500">
-                            <Image
-                                source={{ uri: homeMockData.user.avatar }}
-                                className="w-28 h-28 rounded-full"
-                            />
+                            {isUploading ? (
+                                <View className="w-28 h-28 rounded-full bg-neutro-900 items-center justify-center">
+                                    <ActivityIndicator color="#ff4422" />
+                                </View>
+                            ) : (
+                                <Image
+                                    source={{ uri: userAvatar }}
+                                    className="w-28 h-28 rounded-full"
+                                />
+                            )}
                         </View>
                         <TouchableOpacity
-                            className="absolute bottom-0 right-0 bg-brasa-500 p-2 rounded-full border-2 border-carbono-950"
+                            onPress={handlePickImage}
+                            disabled={isUploading}
+                            className={`absolute bottom-0 right-0 bg-brasa-500 p-2 rounded-full border-2 border-carbono-950 ${isUploading ? 'opacity-50' : ''}`}
                         >
                             <Pencil size={16} color="#fff" />
                         </TouchableOpacity>
                     </View>
-                    <Text className="text-white text-2xl font-bold mt-4">{homeMockData.user.name} Silva</Text>
-                    <Text className="text-neutro-400 text-sm">22 anos</Text>
+                    <Text className="text-white text-2xl font-bold mt-4">{userDisplayName}</Text>
+                    <Text className="text-neutro-400 text-sm">{profile?.age ? `${profile.age} anos` : 'Idade não informada'}</Text>
                 </View>
 
                 {/* Statistics Grid */}

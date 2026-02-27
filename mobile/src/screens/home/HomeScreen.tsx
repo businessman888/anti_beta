@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { homeMockData } from '../../mocks/homeMock';
 import { usePlanStore } from '../../store/planStore';
+import { useAuthStore } from '../../store/authStore';
 import { HomeHeader } from './components/HomeHeader';
 import { TestosteroneCard } from './components/TestosteroneCard';
 import { DailyGoalsCard } from './components/DailyGoalsCard';
@@ -30,11 +31,13 @@ export const HomeScreen = () => {
         getHydration,
         getBiohacking,
         getAlphaTip,
-        toggleMeal,
-        toggleBiohacking,
         hydrationCurrent,
         incrementHydration,
+        completions,
+        completeTask,
     } = usePlanStore();
+
+    const { user } = useAuthStore();
 
     // In a real scenario, we would calculate current day/week/month based on plan start date
     // For now, we use the first day of the first week
@@ -47,12 +50,15 @@ export const HomeScreen = () => {
         if (!plan) return homeMockData.goals;
 
         const tasks = getDailyGoals(currentDay, currentWeek, currentMonth);
-        const items = tasks.map((task, index) => ({
-            id: String(index + 1),
-            title: task.titulo,
-            completed: task.concluida,
-            type: CATEGORY_TYPE_MAP[task.categoria] || 'practice',
-        }));
+        const items = tasks.map((task, index) => {
+            const taskId = `goal_${currentMonth}_${currentWeek}_${currentDay}_${index}`;
+            return {
+                id: taskId,
+                title: task.titulo,
+                completed: completions.has(taskId),
+                type: CATEGORY_TYPE_MAP[task.categoria] || 'practice',
+            };
+        });
 
         if (items.length === 0) return homeMockData.goals;
 
@@ -61,7 +67,7 @@ export const HomeScreen = () => {
             total: items.length || 1,
             items: items,
         };
-    }, [plan, getDailyGoals]);
+    }, [plan, getDailyGoals, completions]);
 
     const workout = getWorkout(currentWeek, currentMonth);
     const meals = getMeals(currentWeek, currentMonth);
@@ -87,6 +93,11 @@ export const HomeScreen = () => {
                     completed={goalsData.completed}
                     total={goalsData.total}
                     items={goalsData.items}
+                    onCompleteTask={(id) => {
+                        if (user) {
+                            completeTask(id, user.id);
+                        }
+                    }}
                 />
 
                 <WorkoutCard
@@ -96,12 +107,20 @@ export const HomeScreen = () => {
                 />
 
                 <MealsCard
-                    items={meals.map(m => ({
-                        title: m.titulo,
-                        time: m.horario,
-                        completed: m.concluida
-                    }))}
-                    onToggleMeal={(index) => toggleMeal(index, currentDay, currentWeek, currentMonth)}
+                    items={meals.map((m, index) => {
+                        const taskId = `meal_${currentMonth}_${currentWeek}_${currentDay}_${index}`;
+                        return {
+                            title: m.titulo,
+                            time: m.horario,
+                            completed: completions.has(taskId)
+                        };
+                    })}
+                    onToggleMeal={(index) => {
+                        if (user) {
+                            const taskId = `meal_${currentMonth}_${currentWeek}_${currentDay}_${index}`;
+                            completeTask(taskId, user.id);
+                        }
+                    }}
                 />
 
                 <HydrationCard
@@ -111,11 +130,19 @@ export const HomeScreen = () => {
                 />
 
                 <BioHackingCard
-                    items={biohacking.map(i => ({
-                        title: i.titulo,
-                        completed: i.concluida
-                    }))}
-                    onToggleItem={(index) => toggleBiohacking(index, currentDay, currentWeek, currentMonth)}
+                    items={biohacking.map((i, index) => {
+                        const taskId = `bio_${currentMonth}_${currentWeek}_${currentDay}_${index}`;
+                        return {
+                            title: i.titulo,
+                            completed: completions.has(taskId)
+                        };
+                    })}
+                    onToggleItem={(index) => {
+                        if (user) {
+                            const taskId = `bio_${currentMonth}_${currentWeek}_${currentDay}_${index}`;
+                            completeTask(taskId, user.id);
+                        }
+                    }}
                 />
 
                 {alphaTip && (

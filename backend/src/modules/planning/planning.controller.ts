@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCreatedResponse, ApiBadRequestResponse } from '@nestjs/swagger';
 import { PlanningService } from './planning.service';
 import { GeneratePlanDto, PlanResponseDto } from './dto/generate-plan.dto';
@@ -20,5 +20,29 @@ export class PlanningController {
     async generatePlan(@Body() dto: GeneratePlanDto): Promise<PlanResponseDto> {
         this.logger.log('Received plan generation request');
         return this.planningService.generatePlan(dto);
+    }
+
+    @Get('status/:userId')
+    @ApiOperation({ summary: 'Verificar se o usuário já possui um plano' })
+    async getPlanStatus(@Param('userId') userId: string) {
+        return this.planningService.getPlanStatus(userId);
+    }
+
+    @Get('user/:userId')
+    @ApiOperation({ summary: 'Recuperar o plano de um usuário específico' })
+    async getPlanByUser(@Param('userId') userId: string) {
+        return this.planningService.getPlanByUserId(userId);
+    }
+
+    @Post('complete')
+    @ApiOperation({ summary: 'Marcar uma tarefa/refeição como concluída' })
+    async completeTask(@Body() body: { userId: string; taskId: string }) {
+        return this.planningService.completeTask(body.userId, body.taskId);
+    }
+
+    @Get('completions/:userId')
+    @ApiOperation({ summary: 'Recuperar conclusões diárias' })
+    async getCompletions(@Param('userId') userId: string) {
+        return this.planningService.getDailyCompletions(userId);
     }
 }

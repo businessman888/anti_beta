@@ -28,8 +28,8 @@ export const AppNavigator = () => {
 
     if (isLoading) {
         return (
-            <View className="flex-1 bg-zinc-950 justify-center items-center">
-                <ActivityIndicator size="large" color="#dc2626" />
+            <View className="flex-1 bg-[#09090b] justify-center items-center">
+                <ActivityIndicator size="large" color="#f97316" />
             </View>
         );
     }

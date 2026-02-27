@@ -9,9 +9,10 @@ interface DailyGoalsCardProps {
     completed: number;
     total: number;
     items: Array<{ id: string; title: string; completed: boolean; type: string }>;
+    onCompleteTask?: (id: string) => void;
 }
 
-export const DailyGoalsCard = ({ completed, total, items }: DailyGoalsCardProps) => {
+export const DailyGoalsCard = ({ completed, total, items, onCompleteTask }: DailyGoalsCardProps) => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const percentage = Math.round((completed / total) * 100);
 
@@ -33,7 +34,11 @@ export const DailyGoalsCard = ({ completed, total, items }: DailyGoalsCardProps)
 
             <View className="mb-6">
                 {items.map((item) => (
-                    <GoalItem key={item.id} {...item} />
+                    <GoalItem
+                        key={item.id}
+                        {...item}
+                        onPress={() => onCompleteTask?.(item.id)}
+                    />
                 ))}
             </View>
 

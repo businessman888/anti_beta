@@ -87,7 +87,10 @@ interface PlanState {
     isGenerating: boolean;
     error: string | null;
     hydrationCurrent: number;
+    completions: Set<string>;
     generatePlan: (quizAnswers: Record<string, any>, userId?: string) => Promise<void>;
+    fetchUserPlan: (userId: string) => Promise<void>;
+    fetchCompletions: (userId: string) => Promise<void>;
     setPlan: (plan: PlanData) => void;
     clearPlan: () => void;
     getDailyGoals: (day?: number, week?: number, month?: number) => PlanTask[];
@@ -98,8 +101,7 @@ interface PlanState {
     incrementHydration: () => void;
     getBiohacking: (week?: number, month?: number) => PlanBiohackingItem[];
     getAlphaTip: (week?: number, month?: number) => string | null;
-    toggleMeal: (index: number, day?: number, week?: number, month?: number) => void;
-    toggleBiohacking: (index: number, day?: number, week?: number, month?: number) => void;
+    completeTask: (taskId: string, userId: string) => Promise<void>;
 }
 
 export const usePlanStore = create<PlanState>((set, get) => ({
@@ -108,6 +110,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
     isGenerating: false,
     error: null,
     hydrationCurrent: 0.0,
+    completions: new Set<string>(),
 
     generatePlan: async (quizAnswers: Record<string, any>, userId?: string) => {
         set({ isGenerating: true, error: null });
@@ -129,6 +132,38 @@ export const usePlanStore = create<PlanState>((set, get) => ({
                 error: message,
             });
             throw error;
+        }
+    },
+
+    fetchUserPlan: async (userId: string) => {
+        set({ isGenerating: true, error: null });
+        try {
+            const response = await planService.getUserPlan(userId);
+            if (response.data && response.data.planData) {
+                set({
+                    plan: response.data.planData as PlanData,
+                    planId: response.data.id,
+                    isGenerating: false,
+                });
+                // After fetching plan, also fetch completions for today
+                get().fetchCompletions(userId);
+            } else {
+                set({ isGenerating: false, plan: null, planId: null });
+            }
+        } catch (error: any) {
+            set({ isGenerating: false, error: 'Erro ao carregar plano' });
+            console.error('Error fetching plan:', error);
+        }
+    },
+
+    fetchCompletions: async (userId: string) => {
+        try {
+            const response = await planService.getCompletions(userId);
+            const completionItems = response.data || [];
+            const completionSet = new Set<string>(completionItems.map((c: any) => c.task_id));
+            set({ completions: completionSet });
+        } catch (error) {
+            console.error('Error fetching completions:', error);
         }
     },
 
@@ -239,152 +274,21 @@ export const usePlanStore = create<PlanState>((set, get) => ({
         return (detailedWeek as PlanWeekDetailed).dica_alfa_semanal || defaultTip;
     },
 
-    toggleMeal: (index, day = 1, week = 1, month = 1) => {
-        set((state) => {
-            let newPlan: PlanData;
+    completeTask: async (taskId, userId) => {
+        const { completions } = get();
+        if (completions.has(taskId)) return;
 
-            if (!state.plan) {
-                // Initialize a skeleton plan with default meals if none exists
-                const defaultMeals = [
-                    { titulo: "Café da manhã", horario: "07:00", concluida: false },
-                    { titulo: "Lanche da manhã", horario: "10:00", concluida: false },
-                    { titulo: "Almoço", horario: "13:00", concluida: false },
-                    { titulo: "Lanche da tarde", horario: "17:00", concluida: false },
-                    { titulo: "Jantar", horario: "20:00", concluida: false }
-                ];
+        try {
+            // Update UI immediately (Optimistic update)
+            const newCompletions = new Set(completions);
+            newCompletions.add(taskId);
+            set({ completions: newCompletions });
 
-                newPlan = {
-                    meta_trimestral: "Transformação Alpha",
-                    insights: { foco_principal: "Fundação", ritmo: "Moderado", complexidade: "Média" },
-                    meses: [
-                        {
-                            numero: 1,
-                            titulo: "Mês 1",
-                            objetivo: "Adaptação e Hábito",
-                            semanas: [
-                                {
-                                    numero: 1,
-                                    foco: "Consistência",
-                                    dica_alfa_semanal: "O primeiro passo para o sucesso é a disciplina.",
-                                    hidratacao: { meta_litros: 3.5 },
-                                    biohacking: [
-                                        { titulo: "Banho gelado", concluida: false },
-                                        { titulo: "Exposição solar (15 min)", concluida: false }
-                                    ],
-                                    treino_dia: { titulo: "Full Body", exercicios: 5, duracao: "45 min" },
-                                    refeicoes: defaultMeals,
-                                    dias: Array.from({ length: 7 }, (_, i) => ({
-                                        dia: i + 1,
-                                        tarefas: []
-                                    }))
-                                }
-                            ]
-                        }
-                    ]
-                };
-            } else {
-                newPlan = JSON.parse(JSON.stringify(state.plan));
-            }
-
-            const monthIdx = newPlan.meses.findIndex(m => m.numero === month);
-            if (monthIdx === -1) return state;
-
-            const targetMonth = newPlan.meses[monthIdx] as PlanMonthDetailed;
-            if (!targetMonth.semanas) return state;
-
-            const weekIdx = targetMonth.semanas.findIndex(w => w.numero === week);
-            if (weekIdx === -1) return state;
-
-            const targetWeek = targetMonth.semanas[weekIdx] as PlanWeekDetailed;
-            if (!targetWeek.refeicoes) {
-                targetWeek.refeicoes = [
-                    { titulo: "Café da manhã", horario: "07:00", concluida: false },
-                    { titulo: "Lanche da manhã", horario: "10:00", concluida: false },
-                    { titulo: "Almoço", horario: "13:00", concluida: false },
-                    { titulo: "Lanche da tarde", horario: "17:00", concluida: false },
-                    { titulo: "Jantar", horario: "20:00", concluida: false }
-                ];
-            }
-
-            const meal = targetWeek.refeicoes[index];
-            if (meal) {
-                meal.concluida = !meal.concluida;
-            }
-
-            return { plan: newPlan };
-        });
-    },
-
-    toggleBiohacking: (index, day = 1, week = 1, month = 1) => {
-        set((state) => {
-            let newPlan: PlanData;
-
-            if (!state.plan) {
-                // Initialize skeleton plan (same as toggleMeal but focus on biohacking items)
-                const defaultBiohacking = [
-                    { titulo: 'Banho gelado', concluida: false },
-                    { titulo: 'Exposição solar (15 min)', concluida: false }
-                ];
-
-                newPlan = {
-                    meta_trimestral: "Transformação Alpha",
-                    insights: { foco_principal: "Fundação", ritmo: "Moderado", complexidade: "Média" },
-                    meses: [
-                        {
-                            numero: 1,
-                            titulo: "Mês 1",
-                            objetivo: "Adaptação e Hábito",
-                            semanas: [
-                                {
-                                    numero: 1,
-                                    foco: "Consistência",
-                                    dica_alfa_semanal: "O primeiro passo para o sucesso é a disciplina.",
-                                    hidratacao: { meta_litros: 3.5 },
-                                    biohacking: defaultBiohacking,
-                                    treino_dia: { titulo: "Full Body", exercicios: 5, duracao: "45 min" },
-                                    refeicoes: [
-                                        { titulo: "Café da manhã", horario: "07:00", concluida: false },
-                                        { titulo: "Lanche da manhã", horario: "10:00", concluida: false },
-                                        { titulo: "Almoço", horario: "13:00", concluida: false },
-                                        { titulo: "Lanche da tarde", horario: "17:00", concluida: false },
-                                        { titulo: "Jantar", horario: "20:00", concluida: false }
-                                    ],
-                                    dias: Array.from({ length: 7 }, (_, i) => ({
-                                        dia: i + 1,
-                                        tarefas: []
-                                    }))
-                                }
-                            ]
-                        }
-                    ]
-                };
-            } else {
-                newPlan = JSON.parse(JSON.stringify(state.plan));
-            }
-
-            const monthIdx = newPlan.meses.findIndex(m => m.numero === month);
-            if (monthIdx === -1) return state;
-
-            const targetMonth = newPlan.meses[monthIdx] as PlanMonthDetailed;
-            if (!targetMonth.semanas) return state;
-
-            const weekIdx = targetMonth.semanas.findIndex(w => w.numero === week);
-            if (weekIdx === -1) return state;
-
-            const targetWeek = targetMonth.semanas[weekIdx] as PlanWeekDetailed;
-            if (!targetWeek.biohacking) {
-                targetWeek.biohacking = [
-                    { titulo: "Banho gelado", concluida: false },
-                    { titulo: "Exposição solar (15 min)", concluida: false }
-                ];
-            }
-
-            const item = targetWeek.biohacking[index];
-            if (item) {
-                item.concluida = !item.concluida;
-            }
-
-            return { plan: newPlan };
-        });
+            // Save to backend
+            await planService.completeTask(userId, taskId);
+        } catch (error) {
+            console.error(`Error completing task ${taskId}:`, error);
+            // Revert on error if necessary, or just log
+        }
     },
 }))

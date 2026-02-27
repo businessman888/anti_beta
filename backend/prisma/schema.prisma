@@ -156,3 +156,13 @@ model Plan {
 
   @@map("plans")
 }
+
+model DailyCompletion {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  taskId      String   @map("task_id")
+  completedAt DateTime @default(now()) @map("completed_at") @db.Date
+
+  @@unique([userId, taskId, completedAt])
+  @@map("daily_completions")
+}
