@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { planService } from '../services/api/planService';
+import { useProgressStore } from './progressStore';
 
 export interface PlanTask {
     categoria: string;
@@ -98,7 +99,7 @@ interface PlanState {
     getWorkout: (week?: number, month?: number) => PlanWorkout | null;
     getMeals: (week?: number, month?: number) => PlanMeal[];
     getHydration: (week?: number, month?: number) => number;
-    incrementHydration: () => void;
+    incrementHydration: (userId?: string) => void;
     getBiohacking: (week?: number, month?: number) => PlanBiohackingItem[];
     getAlphaTip: (week?: number, month?: number) => string | null;
     completeTask: (taskId: string, userId: string) => Promise<void>;
@@ -118,6 +119,11 @@ export const usePlanStore = create<PlanState>((set, get) => ({
         try {
             const response = await planService.generatePlan(quizAnswers, userId);
             const planData = response.data.planData as PlanData;
+
+            // Initialize Progress Store based on the onboarding answers
+            if (userId) {
+                await useProgressStore.getState().initializeFromOnboarding(quizAnswers);
+            }
 
             set({
                 plan: planData,
@@ -238,11 +244,20 @@ export const usePlanStore = create<PlanState>((set, get) => ({
         return (detailedWeek as PlanWeekDetailed).hidratacao?.meta_litros || 3.5;
     },
 
-    incrementHydration: () => {
-        const { hydrationCurrent, getHydration } = get();
+    incrementHydration: (userId?: string) => {
+        const { hydrationCurrent, getHydration, completions, completeTask } = get();
+
+        // If meta already beaten, don't allow incrementing
+        if (completions.has('hydration_daily_goal')) return;
+
         const target = getHydration();
-        if (hydrationCurrent < target) {
-            set({ hydrationCurrent: Math.min(hydrationCurrent + 0.5, target) });
+        const nextValue = Math.min(hydrationCurrent + 0.5, target);
+
+        set({ hydrationCurrent: nextValue });
+
+        // If goal reached, mark as completed in backend
+        if (nextValue >= target && userId) {
+            completeTask('hydration_daily_goal', userId);
         }
     },
 
@@ -283,6 +298,18 @@ export const usePlanStore = create<PlanState>((set, get) => ({
             const newCompletions = new Set(completions);
             newCompletions.add(taskId);
             set({ completions: newCompletions });
+
+            // Hook into Progress Store for gamification
+            const progressStore = useProgressStore.getState();
+            if (taskId === 'hydration_daily_goal') {
+                progressStore.incrementPillar('hidratacaoProgress', 100);
+            } else if (taskId.startsWith('workout_completed_')) {
+                progressStore.incrementPillar('treinoProgress', 100);
+            } else if (taskId.startsWith('meal_')) {
+                progressStore.incrementPillar('alimentacaoProgress', 20);
+            } else if (taskId.startsWith('bio_')) {
+                progressStore.incrementPillar('praticasProgress', 50);
+            }
 
             // Save to backend
             await planService.completeTask(userId, taskId);

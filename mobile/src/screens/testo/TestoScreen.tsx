@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, SafeAreaView, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, SafeAreaView, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, Flame, Shield, Dumbbell, Egg, Moon, Droplets, UserCheck, Smartphone, Beer, TrendingUp, Target, Zap } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
+import { useProgressStore } from '../../store/progressStore';
 
 const { width } = Dimensions.get('window');
 
@@ -38,6 +40,14 @@ export const TestoScreen = () => {
     const navigation = useNavigation();
     const [historyTab, setHistoryTab] = useState<'semanal' | 'mensal'>('semanal');
 
+    const { todayStats, fetchTodayStats, isLoading } = useProgressStore();
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchTodayStats();
+        }, [])
+    );
+
     return (
         <SafeAreaView className="flex-1 bg-zinc-950">
             {/* Header */}
@@ -54,16 +64,23 @@ export const TestoScreen = () => {
                 <View className="px-6 mt-4">
                     <View className="bg-zinc-900/40 border border-zinc-900 rounded-[32px] p-8 items-center">
                         <Flame size={64} color="#f97316" fill="#f97316" className="mb-4" />
-                        <Text className="text-orange-500 font-bold text-4xl mb-1">240</Text>
-                        <Text className="text-zinc-400 font-medium text-lg mb-6">Crescendo!</Text>
 
-                        <View className="bg-emerald-500/10 border border-emerald-500/30 px-4 py-2 rounded-full mb-8">
-                            <Text className="text-emerald-500 font-bold text-xs">+5% esta semana</Text>
-                        </View>
+                        {isLoading ? (
+                            <ActivityIndicator color="#f97316" className="mb-8" />
+                        ) : (
+                            <>
+                                <Text className="text-orange-500 font-bold text-4xl mb-1">{todayStats?.testoPoints || 0}</Text>
+                                <Text className="text-zinc-400 font-medium text-lg mb-6">Nível Testo</Text>
+
+                                <View className="bg-emerald-500/10 border border-emerald-500/30 px-4 py-2 rounded-full mb-8">
+                                    <Text className="text-emerald-500 font-bold text-xs">+5% esta semana</Text>
+                                </View>
+                            </>
+                        )}
 
                         <View className="w-full">
                             <View className="h-2.5 bg-zinc-900 rounded-full overflow-hidden mb-3">
-                                <View className="h-full bg-orange-500" style={{ width: '16%' }} />
+                                <View className="h-full bg-orange-500" style={{ width: `${Math.min(((todayStats?.testoPoints || 0) / 1500) * 100, 100)}%` }} />
                             </View>
                             <View className="flex-row justify-between">
                                 <Text className="text-zinc-600 text-xs font-medium">Início</Text>
@@ -80,50 +97,50 @@ export const TestoScreen = () => {
                     <MetricRow
                         icon={<Shield size={20} color="#71717a" />}
                         label="NoFap"
-                        progress={90}
-                        sublabel="14 dias de sequência"
+                        progress={Math.round(todayStats?.nofapProgress || 0)}
+                        sublabel={`${todayStats?.nofapStreak || 0} dias de sequência / Meta: 90 dias`}
                     />
                     <MetricRow
                         icon={<Dumbbell size={20} color="#71717a" />}
                         label="Treino"
-                        progress={80}
-                        sublabel="Hipertrofia - 5x/semana"
+                        progress={Math.round(todayStats?.treinoProgress || 0)}
+                        sublabel="Progresso semanal em treinos"
                     />
                     <MetricRow
                         icon={<Egg size={20} color="#71717a" />}
                         label="Alimentação"
-                        progress={55}
-                        sublabel="Macros ajustados"
+                        progress={Math.round(todayStats?.alimentacaoProgress || 0)}
+                        sublabel="Refeições do dia"
                     />
                     <MetricRow
                         icon={<Moon size={20} color="#71717a" />}
                         label="Sono"
-                        progress={65}
-                        sublabel="Média: 7h - 12h"
+                        progress={Math.round(todayStats?.sonoProgress || 0)}
+                        sublabel="Avaliado via Quiz"
                     />
                     <MetricRow
                         icon={<Droplets size={20} color="#71717a" />}
                         label="Hidratação"
-                        progress={40}
-                        sublabel="2.1L / 4L meta"
+                        progress={Math.round(todayStats?.hidratacaoProgress || 0)}
+                        sublabel="Garrafas de água concluidas"
                     />
                     <MetricRow
                         icon={<UserCheck size={20} color="#71717a" />}
                         label="Práticas"
-                        progress={30}
-                        sublabel="Meditação pendente"
+                        progress={Math.round(todayStats?.praticasProgress || 0)}
+                        sublabel="Avaliado via Quiz"
                     />
                     <MetricRow
                         icon={<Smartphone size={20} color="#71717a" />}
-                        label="Redes"
-                        progress={85}
-                        sublabel="Limitado a 30min"
+                        label="Redes Sociais"
+                        progress={Math.round(todayStats?.redesProgress || 0)}
+                        sublabel="Avaliado via Quiz"
                     />
                     <MetricRow
                         icon={<Beer size={20} color="#71717a" />}
                         label="Vícios"
-                        progress={100}
-                        sublabel="Zero álcool"
+                        progress={Math.round(todayStats?.viciosProgress || 0)}
+                        sublabel="Avaliado via Quiz"
                     />
                 </View>
 

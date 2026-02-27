@@ -1,5 +1,8 @@
 import React, { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../types/navigation';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { homeMockData } from '../../mocks/homeMock';
 import { usePlanStore } from '../../store/planStore';
@@ -23,6 +26,7 @@ const CATEGORY_TYPE_MAP: Record<string, string> = {
 };
 
 export const HomeScreen = () => {
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const {
         plan,
         getDailyGoals,
@@ -126,7 +130,8 @@ export const HomeScreen = () => {
                 <HydrationCard
                     current={hydrationCurrent}
                     target={hydrationTarget}
-                    onAdd={incrementHydration}
+                    isCompleted={completions.has('hydration_daily_goal')}
+                    onAdd={() => incrementHydration(user?.id)}
                 />
 
                 <BioHackingCard
@@ -155,6 +160,7 @@ export const HomeScreen = () => {
                 <DailyQuizCard
                     availableIn={homeMockData.dailyQuiz.availableIn}
                     isLocked={homeMockData.dailyQuiz.isLocked}
+                    onPress={() => navigation.navigate('DailyQuiz')}
                 />
             </ScrollView>
         </SafeAreaView>

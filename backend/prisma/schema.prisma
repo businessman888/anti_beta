@@ -166,3 +166,22 @@ model DailyCompletion {
   @@unique([userId, taskId, completedAt])
   @@map("daily_completions")
 }
+
+model DailyStats {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  date                DateTime @default(now()) @db.Date
+  nofapProgress       Float    @default(0) @map("nofap_progress")
+  nofapStreak         Int      @default(0) @map("nofap_streak")
+  treinoProgress      Float    @default(0) @map("treino_progress")
+  alimentacaoProgress Float    @default(0) @map("alimentacao_progress")
+  sonoProgress        Float    @default(0) @map("sono_progress")
+  hidratacaoProgress  Float    @default(0) @map("hidratacao_progress")
+  praticasProgress    Float    @default(0) @map("praticas_progress")
+  redesProgress       Float    @default(0) @map("redes_progress")
+  viciosProgress      Float    @default(0) @map("vicios_progress")
+  testoPoints         Int      @default(0) @map("testo_points")
+
+  @@unique([userId, date])
+  @@map("daily_stats")
+}

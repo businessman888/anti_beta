@@ -13,6 +13,7 @@ export type RootStackParamList = {
     WeeklyTip: undefined;
     Profile: undefined;
     Agenda: undefined;
+    DailyQuiz: undefined;
 };
 
 export type MainTabParamList = {

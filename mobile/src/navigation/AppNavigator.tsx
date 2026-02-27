@@ -49,6 +49,7 @@ export const AppNavigator = () => {
                             <Stack.Screen name="WeeklyTip" component={require('../screens/home/WeeklyTipScreen').WeeklyTipScreen} />
                             <Stack.Screen name="Profile" component={require('../screens/profile/ProfileScreen').ProfileScreen} />
                             <Stack.Screen name="Agenda" component={require('../screens/workout/AgendaScreen').AgendaScreen} />
+                            <Stack.Screen name="DailyQuiz" component={require('../screens/quiz/DailyQuizScreen').DailyQuizScreen} />
                         </>
                     ) : (
                         <>
