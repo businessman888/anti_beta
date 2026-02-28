@@ -47,7 +47,7 @@ interface ProgressState {
     fetchTodayStats: () => Promise<void>;
     updateProgress: (updates: Partial<DailyStats>) => Promise<void>;
     incrementPillar: (pillar: keyof DailyStats, amount: number) => Promise<void>;
-    submitDailyQuiz: (answers: QuizAnswer[]) => Promise<boolean>;
+    submitDailyQuiz: (answers: QuizAnswer[]) => Promise<{ success: boolean; error?: string }>;
     initializeFromOnboarding: (answers: any) => Promise<void>;
     calculateTestoPoints: (stats: DailyStats) => number;
 }
@@ -337,10 +337,10 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
 
     submitDailyQuiz: async (answers: QuizAnswer[]) => {
         const { todayStats, updateProgress, checkQuizStatus, quizQuestions } = get();
-        if (!todayStats) return false;
+        if (!todayStats) return { success: false, error: 'Status diário não carregado. Reinicie o app.' };
 
         const userId = useAuthStore.getState().session?.user?.id;
-        if (!userId) return false;
+        if (!userId) return { success: false, error: 'Usuário não autenticado.' };
 
         const updates: Partial<DailyStats> = { ...todayStats };
 
@@ -400,7 +400,7 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
 
             if (insertError) {
                 console.error('Error saving quiz responses:', insertError);
-                return false; // Indicate failure
+                return { success: false, error: `Erro Supabase: ${insertError.message}` };
             }
 
             // 2. ONLY if insert succeeds, update stats
@@ -409,10 +409,10 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
 
             // 3. Accountability +3 Activity Points
             await useAuthStore.getState().incrementActivityPoints(3);
-            return true;
-        } catch (error) {
+            return { success: true };
+        } catch (error: any) {
             console.error('Error during quiz submission flow:', error);
-            return false;
+            return { success: false, error: `Falha interna: ${error.message}` };
         }
     }
 }));

@@ -46,13 +46,13 @@ export const DailyQuizScreen = () => {
                 answer
             }));
 
-            const success = await submitDailyQuiz(formattedAnswers);
+            const result = await submitDailyQuiz(formattedAnswers);
             setIsSubmitting(false);
 
-            if (success) {
+            if (result.success) {
                 navigation.goBack();
             } else {
-                Alert.alert("Erro", "Não foi possível salvar as respostas do quiz. Você já respondeu hoje?");
+                Alert.alert("Erro", result.error || "Não foi possível salvar as respostas do quiz.");
             }
         }
     };
