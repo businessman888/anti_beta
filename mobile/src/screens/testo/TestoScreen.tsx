@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, SafeAreaView, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, Flame, Shield, Dumbbell, Egg, Moon, Droplets, UserCheck, Smartphone, Beer, TrendingUp, Target, Zap } from 'lucide-react-native';
@@ -40,12 +40,79 @@ export const TestoScreen = () => {
     const navigation = useNavigation();
     const [historyTab, setHistoryTab] = useState<'semanal' | 'mensal'>('semanal');
 
-    const { todayStats, fetchTodayStats, isLoading } = useProgressStore();
+    const { todayStats, fetchTodayStats, isLoading, historyStats, fetchHistory, weeklyInsight, fetchWeeklyInsights, isInsightLoading, insightError } = useProgressStore();
 
     useFocusEffect(
         useCallback(() => {
             fetchTodayStats();
+            fetchWeeklyInsights();
         }, [])
+    );
+
+    useEffect(() => {
+        fetchHistory(historyTab === 'semanal' ? 'weekly' : 'monthly');
+    }, [historyTab, fetchHistory]);
+
+    // --- Chart Data Calculation ---
+    // Extract recent points, at least 1, max depends on tab
+    const dataPoints = historyStats.length > 0
+        ? historyStats.map(s => s.testoPoints)
+        : [todayStats?.testoPoints || 0];
+
+    // Fallback if data points only has 1 item, duplicate it to draw a straight line
+    if (dataPoints.length === 1) dataPoints.push(dataPoints[0]);
+
+    // SVG ViewBox is 320x120. We will map X from 10 to 310, and Y from 100 (bottom) to 20 (top).
+    // Testo points go from 0 to 100.
+    const mapY = (val: number) => {
+        // val = 0 -> Y = 100
+        // val = 100 -> Y = 20
+        return 100 - (val / 100) * 80;
+    };
+
+    const stepX = 300 / (dataPoints.length - 1);
+    const coordinates = dataPoints.map((val, index) => ({
+        x: 10 + index * stepX,
+        y: mapY(val)
+    }));
+
+    // Build SVG Path string
+    let pathString = `M ${coordinates[0].x},${coordinates[0].y}`;
+    for (let i = 1; i < coordinates.length; i++) {
+        // Simple line for now; could be cubic bezier for smoother curves, 
+        // but straight lines or smooth quadratic approximation works.
+        // Let's use a very slight curve using quadratic bezier if we want, or just lines
+        // A standard line graph is fine: L x,y
+        pathString += ` L ${coordinates[i].x},${coordinates[i].y}`;
+    }
+
+    const areaPathString = `${pathString} L ${coordinates[coordinates.length - 1].x},120 L 10,120 Z`;
+    const lastPoint = coordinates[coordinates.length - 1];
+
+    // --- Summary Calculations ---
+    const startVal = dataPoints[0] || 0;
+    const endVal = dataPoints[dataPoints.length - 1] || 0;
+    const diff = endVal - startVal;
+
+    const diffText = diff >= 0 ? `+${diff}%` : `${diff}%`;
+    const diffColor = diff >= 0 ? "text-emerald-500" : "text-red-500";
+
+    const periodName = historyTab === 'semanal' ? 'na semana' : 'no mês';
+
+    const renderChart = () => (
+        <View className="h-40 overflow-hidden mb-2">
+            <Svg height="100%" width="100%" viewBox="0 0 320 120">
+                <Defs>
+                    <LinearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+                        <Stop offset="0" stopColor="#f42" stopOpacity="0.35" />
+                        <Stop offset="1" stopColor="#f42" stopOpacity="0" />
+                    </LinearGradient>
+                </Defs>
+                <Path d={areaPathString} fill="url(#glow)" />
+                <Path d={pathString} stroke="#f42" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <Circle cx={lastPoint.x} cy={lastPoint.y} r="4" fill="#f42" />
+            </Svg>
+        </View>
     );
 
     return (
@@ -80,11 +147,11 @@ export const TestoScreen = () => {
 
                         <View className="w-full">
                             <View className="h-2.5 bg-zinc-900 rounded-full overflow-hidden mb-3">
-                                <View className="h-full bg-orange-500" style={{ width: `${Math.min(((todayStats?.testoPoints || 0) / 1500) * 100, 100)}%` }} />
+                                <View className="h-full bg-orange-500" style={{ width: `${Math.min(todayStats?.testoPoints || 0, 100)}%` }} />
                             </View>
                             <View className="flex-row justify-between">
                                 <Text className="text-zinc-600 text-xs font-medium">Início</Text>
-                                <Text className="text-zinc-600 text-xs font-medium">Meta: 1.500</Text>
+                                <Text className="text-zinc-600 text-xs font-medium">Meta: 100 Nvls.</Text>
                             </View>
                         </View>
                     </View>
@@ -168,39 +235,14 @@ export const TestoScreen = () => {
                             </View>
                         </View>
 
-                        {/* Chart Mock - Curved SVG */}
-                        <View className="h-40 overflow-hidden mb-2">
-                            <Svg height="100%" width="100%" viewBox="0 0 320 120">
-                                <Defs>
-                                    <LinearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
-                                        <Stop offset="0" stopColor="#f42" stopOpacity="0.35" />
-                                        <Stop offset="1" stopColor="#f42" stopOpacity="0" />
-                                    </LinearGradient>
-                                </Defs>
-                                {/* Area Glow */}
-                                <Path
-                                    d="M 10,100 C 100,100 200,80 310,20 L 310,120 L 10,120 Z"
-                                    fill="url(#glow)"
-                                />
-                                {/* Curve Path */}
-                                <Path
-                                    d="M 10,100 C 100,100 200,80 310,20"
-                                    stroke="#f42"
-                                    strokeWidth="2.5"
-                                    strokeLinecap="round"
-                                    fill="none"
-                                />
-                                {/* Marker Dot */}
-                                <Circle cx="310" cy="20" r="4" fill="#f42" />
-                            </Svg>
-                        </View>
+                        {renderChart()}
 
                         <View className="flex-row items-center justify-between border-t border-zinc-900 pt-6">
                             <View>
                                 <Text className="text-zinc-500 text-[10px] font-medium mb-1">Progresso total</Text>
-                                <Text className="text-white font-bold text-sm">JAN: 35% - 67%</Text>
+                                <Text className="text-white font-bold text-sm">Níveis: {startVal} - {endVal}</Text>
                             </View>
-                            <Text className="text-emerald-500 font-bold text-sm">+32% no mês!</Text>
+                            <Text className={`${diffColor} font-bold text-sm`}>{diffText} {periodName}!</Text>
                         </View>
                     </View>
                 </View>
@@ -214,39 +256,48 @@ export const TestoScreen = () => {
                         </View>
 
                         <View className="space-y-4 mb-8">
-                            <View className="flex-row items-start mb-4">
-                                <View className="w-5 h-5 bg-orange-600/20 rounded-full items-center justify-center mr-4 mt-0.5">
-                                    <View className="w-2 h-2 bg-orange-600 rounded-full" />
+                            {isInsightLoading ? (
+                                <View className="items-center justify-center py-6">
+                                    <ActivityIndicator size="small" color="#ea580c" />
+                                    <Text className="text-zinc-500 mt-3 text-sm">Analisando sua semana...</Text>
                                 </View>
-                                <View className="flex-1">
-                                    <Text className="text-zinc-600 text-sm">
-                                        Foco da semana: <Text className="text-white">Aumentar ingestão de gorduras boas</Text> (abacate, azeite).
-                                    </Text>
+                            ) : insightError ? (
+                                <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+                                    <Text className="text-zinc-400 text-sm text-center leading-5">{insightError}</Text>
                                 </View>
-                            </View>
-
-                            <View className="flex-row items-start mb-4">
-                                <View className="w-5 h-5 bg-orange-600/20 rounded-full items-center justify-center mr-4 mt-0.5">
-                                    <View className="w-2 h-2 bg-orange-600 rounded-full" />
+                            ) : weeklyInsight ? (
+                                weeklyInsight.pointsOfImprovement.map((point: string, index: number) => (
+                                    <View key={index} className="flex-row items-start mb-4">
+                                        <View className="w-5 h-5 bg-orange-600/20 rounded-full items-center justify-center mr-4 mt-0.5">
+                                            <View className="w-2 h-2 bg-orange-600 rounded-full" />
+                                        </View>
+                                        <View className="flex-1">
+                                            <Text className="text-zinc-300 text-sm leading-5">
+                                                {point}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                ))
+                            ) : (
+                                <View className="items-center justify-center py-6">
+                                    <Text className="text-zinc-500 text-sm">Nenhum relatório gerado ainda.</Text>
                                 </View>
-                                <View className="flex-1">
-                                    <Text className="text-white text-sm">
-                                        Melhorar higiene do sono <Text className="text-zinc-600">(sem telas 1h antes).</Text>
-                                    </Text>
-                                </View>
-                            </View>
+                            )}
                         </View>
 
                         {/* Next Goal Button */}
                         <TouchableOpacity
-                            className="bg-zinc-900 border border-orange-600/40 rounded-2xl p-4 flex-row items-center justify-between"
+                            className="bg-zinc-900 border border-orange-600/40 rounded-2xl p-4 flex-row items-center justify-between opacity-90"
+                            disabled={!weeklyInsight}
                         >
                             <View>
                                 <Text className="text-zinc-600 text-[10px] font-medium mb-1">Próximo objetivo</Text>
-                                <Text className="text-white font-bold text-sm">Nível Avançado</Text>
+                                <Text className="text-white font-bold text-sm">
+                                    {weeklyInsight?.nextObjectiveTitle || 'Analise em progresso...'}
+                                </Text>
                             </View>
                             <View className="bg-orange-600/20 border border-orange-600/50 px-4 py-2 rounded-xl flex-row items-center">
-                                <Text className="text-orange-600 font-bold text-sm mr-2">70%</Text>
+                                <Text className="text-orange-600 font-bold text-sm mr-2">{weeklyInsight?.nextObjectivePercent || 0}%</Text>
                                 <Zap size={14} color="#f42" fill="#f42" />
                             </View>
                         </TouchableOpacity>

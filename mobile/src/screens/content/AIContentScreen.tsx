@@ -38,7 +38,7 @@ export const AIContentScreen = () => {
 
                 <View className="items-center mt-12">
                     <TouchableOpacity
-                        onPress={() => navigation.navigate('History' as any)}
+                        onPress={() => navigation.navigate('History' as never)}
                         className="flex-row items-center bg-zinc-900/50 px-6 py-3 rounded-full border border-zinc-800"
                     >
                         <History size={18} color="#a1a1aa" />

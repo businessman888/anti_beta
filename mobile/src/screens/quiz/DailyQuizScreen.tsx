@@ -11,7 +11,7 @@ import { useProgressStore, QuizAnswer } from '../../store/progressStore';
 
 export const DailyQuizScreen = () => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { submitDailyQuiz, quizQuestions, fetchQuizQuestions, isLoading: storeLoading } = useProgressStore();
+    const { submitDailyQuiz, quizQuestions, fetchQuizQuestions, fetchTodayStats, isLoading: storeLoading } = useProgressStore();
 
     const [currentStep, setCurrentStep] = useState(0);
     const [answers, setAnswers] = useState<Record<string, boolean>>({});
@@ -19,13 +19,14 @@ export const DailyQuizScreen = () => {
     const [initialLoading, setInitialLoading] = useState(true);
 
     useEffect(() => {
-        const loadQuestions = async () => {
+        const loadData = async () => {
             if (quizQuestions.length === 0) {
                 await fetchQuizQuestions();
             }
+            await fetchTodayStats(); // Fetches or UPSERTs daily_stats immediately
             setInitialLoading(false);
         };
-        loadQuestions();
+        loadData();
     }, []);
 
     const totalSteps = quizQuestions.length;
@@ -46,7 +47,14 @@ export const DailyQuizScreen = () => {
                 answer
             }));
 
-            const result = await submitDailyQuiz(formattedAnswers);
+            let result = await submitDailyQuiz(formattedAnswers);
+
+            // Auto resync and retry if it fails due to uninitialized store
+            if (!result.success && result.error?.includes('indisponível')) {
+                await useProgressStore.getState().fetchTodayStats();
+                result = await submitDailyQuiz(formattedAnswers);
+            }
+
             setIsSubmitting(false);
 
             if (result.success) {

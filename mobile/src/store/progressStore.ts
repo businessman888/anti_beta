@@ -32,6 +32,14 @@ export interface QuizAnswer {
     answer: boolean;
 }
 
+export interface WeeklyInsight {
+    id: string;
+    pointsOfImprovement: string[];
+    nextObjectiveTitle: string;
+    nextObjectivePercent: number;
+}
+
+
 interface ProgressState {
     todayStats: DailyStats | null;
     hasCompletedQuizToday: boolean;
@@ -40,7 +48,13 @@ interface ProgressState {
     isLoading: boolean;
     error: string | null;
     quizQuestions: QuizQuestion[];
+    historyStats: DailyStats[];
+    weeklyInsight: WeeklyInsight | null;
+    isInsightLoading: boolean;
+    insightError: string | null;
 
+    fetchHistory: (period: 'weekly' | 'monthly') => Promise<void>;
+    fetchWeeklyInsights: () => Promise<void>;
     fetchQuizQuestions: () => Promise<void>;
 
     checkQuizStatus: () => Promise<void>;
@@ -87,6 +101,96 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
     isLoading: false,
     error: null,
     quizQuestions: [],
+    historyStats: [],
+    weeklyInsight: null,
+    isInsightLoading: false,
+    insightError: null,
+
+    fetchHistory: async (period: 'weekly' | 'monthly') => {
+        const userId = useAuthStore.getState().session?.user?.id;
+        if (!userId) return;
+
+        set({ isLoading: true, error: null });
+
+        try {
+            const daysToFetch = period === 'weekly' ? 7 : 30;
+
+            // Calculate relative date to get history based on daysToFetch
+            const targetDate = new Date();
+            targetDate.setDate(targetDate.getDate() - daysToFetch);
+            const targetDateStr = targetDate.toISOString().split('T')[0];
+
+            const { data, error } = await supabase
+                .from('daily_stats')
+                .select('*')
+                .eq('user_id', userId)
+                .gte('date', targetDateStr)
+                .order('date', { ascending: true })
+                .limit(daysToFetch);
+
+            if (error) throw error;
+
+            if (data) {
+                const history: DailyStats[] = data.map(item => ({
+                    id: item.id,
+                    userId: item.user_id,
+                    date: item.date,
+                    nofapProgress: item.nofap_progress,
+                    nofapStreak: item.nofap_streak,
+                    treinoProgress: item.treino_progress,
+                    alimentacaoProgress: item.alimentacao_progress,
+                    sonoProgress: item.sono_progress,
+                    hidratacaoProgress: item.hidratacao_progress,
+                    praticasProgress: item.praticas_progress,
+                    redesProgress: item.redes_progress,
+                    viciosProgress: item.vicios_progress,
+                    testoPoints: item.testo_points,
+                }));
+                set({ historyStats: history });
+            }
+        } catch (error: any) {
+            console.error('Error fetching history stats:', error);
+            set({ error: error.message });
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+
+    fetchWeeklyInsights: async () => {
+        const userId = useAuthStore.getState().session?.user?.id;
+        if (!userId) return;
+
+        set({ isInsightLoading: true, insightError: null });
+
+        try {
+            // we will use fetch since we might not have apiClient imported in this file yet
+            // or we can import apiClient at the top. Let's lazily require it or just import it.
+            // Actually, we can use the default API url + bearer token.
+            const { apiClient } = require('../services/api/client');
+            const response = await apiClient.get('/insights/weekly');
+
+            if (response.data) {
+                set({
+                    weeklyInsight: {
+                        id: response.data.id,
+                        pointsOfImprovement: response.data.pointsOfImprovement,
+                        nextObjectiveTitle: response.data.nextObjectiveTitle,
+                        nextObjectivePercent: response.data.nextObjectivePercent,
+                    },
+                    isInsightLoading: false,
+                });
+            }
+        } catch (error: any) {
+            console.error('Error fetching weekly insights:', error);
+            // Handle specific status code 400 for 'Poucos dados'
+            if (error.response?.status === 400) {
+                set({ insightError: error.response.data.message });
+            } else {
+                set({ insightError: 'Erro ao analisar sua semana.' });
+            }
+            set({ isInsightLoading: false, weeklyInsight: null });
+        }
+    },
 
     fetchQuizQuestions: async () => {
         try {
@@ -128,18 +232,17 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
 
     calculateTestoPoints: (stats: DailyStats) => {
         // Testo Formula Weights: NoFap (15%), Treino (20%), Alimentação (15%), Sono (15%), Hidratação (5%), Práticas (10%), Redes (5%), Vícios (5%)
-        // The user mentioned this sums to 90%, we will use exactly these fractional weights based on 100 points per progress.
         const total =
-            (stats.nofapProgress || 0) * 0.15 +
-            (stats.treinoProgress || 0) * 0.20 +
-            (stats.alimentacaoProgress || 0) * 0.15 +
-            (stats.sonoProgress || 0) * 0.15 +
-            (stats.hidratacaoProgress || 0) * 0.05 +
-            (stats.praticasProgress || 0) * 0.10 +
-            (stats.redesProgress || 0) * 0.05 +
-            (stats.viciosProgress || 0) * 0.05;
+            Math.min(stats.nofapProgress || 0, 100) * 0.15 +
+            Math.min(stats.treinoProgress || 0, 100) * 0.20 +
+            Math.min(stats.alimentacaoProgress || 0, 100) * 0.15 +
+            Math.min(stats.sonoProgress || 0, 100) * 0.15 +
+            Math.min(stats.hidratacaoProgress || 0, 100) * 0.05 +
+            Math.min(stats.praticasProgress || 0, 100) * 0.10 +
+            Math.min(stats.redesProgress || 0, 100) * 0.05 +
+            Math.min(stats.viciosProgress || 0, 100) * 0.05;
 
-        return Math.round(total);
+        return Math.min(Math.round(total), 100);
     },
 
     fetchTodayStats: async () => {
@@ -182,6 +285,9 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
             } else {
                 // Fetch yesterday's streak if today doesn't exist yet
                 const yesterday = new Date();
+                if (yesterday.getHours() < 3) {
+                    yesterday.setDate(yesterday.getDate() - 1);
+                }
                 yesterday.setDate(yesterday.getDate() - 1);
                 const yesterdayStr = yesterday.toISOString().split('T')[0];
 
@@ -336,8 +442,13 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
     },
 
     submitDailyQuiz: async (answers: QuizAnswer[]) => {
+        const technicalDate = getTechnicalDate();
+        if (!get().todayStats || get().todayStats?.date !== technicalDate) {
+            await get().fetchTodayStats();
+        }
+
         const { todayStats, updateProgress, checkQuizStatus, quizQuestions } = get();
-        if (!todayStats) return { success: false, error: 'Status diário não carregado. Reinicie o app.' };
+        if (!todayStats) return { success: false, error: 'Status diário não carregado. O banco de dados pode estar indisponível.' };
 
         const userId = useAuthStore.getState().session?.user?.id;
         if (!userId) return { success: false, error: 'Usuário não autenticado.' };
@@ -378,14 +489,18 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
             }
 
             // Streak logic for Masturbation (Question "Você se masturbou hoje?") 
-            // The DB has "reset": "NoFap" in impact_sim for Masturbation.
-            // But we need to increment streak if they didn't relapse and the question is the NoFap one
             if (!answer.answer && question.question_text.toLowerCase().includes('masturbou')) {
                 const newStreak = (updates.nofapStreak || 0) + 1;
                 updates.nofapStreak = newStreak;
+
                 if (newStreak > 7) {
                     updates.nofapProgress = applyDelta(updates.nofapProgress || 0, 1);
                 }
+
+                // Milestone bonuses (7, 30, 90 dias)
+                if (newStreak === 7) updates.nofapProgress = applyDelta(updates.nofapProgress || 0, 5);
+                else if (newStreak === 30) updates.nofapProgress = applyDelta(updates.nofapProgress || 0, 15);
+                else if (newStreak === 90) updates.nofapProgress = applyDelta(updates.nofapProgress || 0, 30);
             }
         }
 

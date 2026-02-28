@@ -1,0 +1,61 @@
+﻿node.exe : warn The 
+configuration property 
+`package.json#prisma` 
+is deprecated and will 
+be removed in Prisma 
+7. Please migrate to a 
+Prisma config file 
+(e.g., 
+`prisma.config.ts`).
+No linha:1 caractere:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (warn The conf   
+ ig...ma.config.ts`    
+).:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+For more information, 
+see: https://pris.ly/pr
+isma-config
+
+Environment variables 
+loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "postgres", schema "public" at "db.roajfuqdvkfhyxrgxgku.supabase.co:5432"
+Error: P4002
+
+The schema of the 
+introspected database 
+was inconsistent: The 
+schema of the 
+introspected database 
+was inconsistent: 
+Cross schema 
+references are only 
+allowed when the 
+target schema is 
+listed in the schemas 
+property of your 
+datasource. `public.dai
+ly_completions` points 
+to `auth.users` in 
+constraint `daily_compl
+etions_user_id_fkey`. 
+Please add `auth` to 
+your `schemas` 
+property and run this 
+command again.
+

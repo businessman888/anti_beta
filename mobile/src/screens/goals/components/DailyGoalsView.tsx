@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Calendar, Dumbbell, Apple, Droplets, Zap, Lock, ChevronRight, CheckCircle2, Circle } from 'lucide-react-native';
 import { usePlanStore } from '../../../store/planStore';
+import { useAuthStore } from '../../../store/authStore';
 
 export const DailyGoalsView = () => {
     const {
@@ -11,8 +12,7 @@ export const DailyGoalsView = () => {
         getMeals,
         getHydration,
         getBiohacking,
-        toggleMeal,
-        toggleBiohacking
+        completeTask
     } = usePlanStore();
 
     // Use same day/week/month logic as Home
@@ -100,7 +100,10 @@ export const DailyGoalsView = () => {
                             <TouchableOpacity
                                 key={index}
                                 activeOpacity={0.7}
-                                onPress={() => toggleMeal(index, currentDay, currentWeek, currentMonth)}
+                                onPress={() => {
+                                    const userId = useAuthStore.getState().session?.user?.id;
+                                    if (userId) completeTask(`meal_${index}`, userId)
+                                }}
                                 className="flex-row items-center justify-between mb-5 last:mb-0"
                             >
                                 <View className="flex-row items-center gap-3">
@@ -155,7 +158,10 @@ export const DailyGoalsView = () => {
                         <TouchableOpacity
                             key={index}
                             activeOpacity={0.7}
-                            onPress={() => toggleBiohacking(index, currentDay, currentWeek, currentMonth)}
+                            onPress={() => {
+                                const userId = useAuthStore.getState().session?.user?.id;
+                                if (userId) completeTask(`bio_${index}`, userId)
+                            }}
                             className="flex-row items-center mb-6 last:mb-0"
                         >
                             <View className="mr-3">

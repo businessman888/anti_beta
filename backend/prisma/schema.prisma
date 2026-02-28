@@ -185,3 +185,17 @@ model DailyStats {
   @@unique([userId, date])
   @@map("daily_stats")
 }
+
+model WeeklyInsight {
+  id                    String   @id @default(uuid()) @db.Uuid
+  userId                String   @map("user_id") @db.Uuid
+  weekStartDate         DateTime @map("week_start_date") @db.Date
+  pointsOfImprovement   Json     @map("points_of_improvement") // Array of 3 strings
+  nextObjectiveTitle    String   @map("next_objective_title")
+  nextObjectivePercent  Int      @map("next_objective_percent")
+
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, weekStartDate])
+  @@map("weekly_insights")
+}
