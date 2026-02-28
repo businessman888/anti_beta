@@ -18,21 +18,18 @@ export interface DailyStats {
     testoPoints: number;
 }
 
-interface QuizAnswers {
-    pornography: boolean;
-    masturbation: boolean;
-    socialMedia: boolean;
-    videogames: boolean;
-    alcohol: boolean;
-    alcoholDrinks?: '1-2' | '3-4' | '5-6' | '7+';
-    cigarette: boolean;
-    maconha: boolean;
-    drugs: boolean;
-    sleep: boolean;
-    hydration: boolean;
-    diet: boolean;
-    workout: boolean | null;
-    practices: boolean;
+export interface QuizQuestion {
+    id: string;
+    question_text: string;
+    category: string;
+    impact_sim: { value: number, component: string, reset?: string } | null;
+    impact_nao: { value: number, component: string, reset?: string } | null;
+    display_order: number;
+}
+
+export interface QuizAnswer {
+    questionId: string;
+    answer: boolean;
 }
 
 interface ProgressState {
@@ -42,12 +39,15 @@ interface ProgressState {
     isQuizLocked: boolean;
     isLoading: boolean;
     error: string | null;
+    quizQuestions: QuizQuestion[];
+
+    fetchQuizQuestions: () => Promise<void>;
 
     checkQuizStatus: () => Promise<void>;
     fetchTodayStats: () => Promise<void>;
     updateProgress: (updates: Partial<DailyStats>) => Promise<void>;
     incrementPillar: (pillar: keyof DailyStats, amount: number) => Promise<void>;
-    submitDailyQuiz: (answers: QuizAnswers) => Promise<void>;
+    submitDailyQuiz: (answers: QuizAnswer[]) => Promise<boolean>;
     initializeFromOnboarding: (answers: any) => Promise<void>;
     calculateTestoPoints: (stats: DailyStats) => number;
 }
@@ -86,6 +86,20 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
     isQuizLocked: true,
     isLoading: false,
     error: null,
+    quizQuestions: [],
+
+    fetchQuizQuestions: async () => {
+        try {
+            const { data, error } = await supabase
+                .from('daily_quiz_questions')
+                .select('*')
+                .order('display_order', { ascending: true });
+            if (error) throw error;
+            if (data) set({ quizQuestions: data });
+        } catch (error) {
+            console.error('Error fetching quiz questions:', error);
+        }
+    },
 
     checkQuizStatus: async () => {
         const userId = useAuthStore.getState().session?.user?.id;
@@ -99,7 +113,7 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
                 .from('daily_quiz_responses')
                 .select('id')
                 .eq('user_id', userId)
-                .eq('date', technicalDate)
+                .eq('quiz_date', technicalDate)
                 .maybeSingle();
 
             const isLocked = !!data;
@@ -113,18 +127,19 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
     },
 
     calculateTestoPoints: (stats: DailyStats) => {
-        // Average of the 8 pillars
+        // Testo Formula Weights: NoFap (15%), Treino (20%), Alimentação (15%), Sono (15%), Hidratação (5%), Práticas (10%), Redes (5%), Vícios (5%)
+        // The user mentioned this sums to 90%, we will use exactly these fractional weights based on 100 points per progress.
         const total =
-            (stats.nofapProgress || 0) +
-            (stats.treinoProgress || 0) +
-            (stats.alimentacaoProgress || 0) +
-            (stats.sonoProgress || 0) +
-            (stats.hidratacaoProgress || 0) +
-            (stats.praticasProgress || 0) +
-            (stats.redesProgress || 0) +
-            (stats.viciosProgress || 0);
+            (stats.nofapProgress || 0) * 0.15 +
+            (stats.treinoProgress || 0) * 0.20 +
+            (stats.alimentacaoProgress || 0) * 0.15 +
+            (stats.sonoProgress || 0) * 0.15 +
+            (stats.hidratacaoProgress || 0) * 0.05 +
+            (stats.praticasProgress || 0) * 0.10 +
+            (stats.redesProgress || 0) * 0.05 +
+            (stats.viciosProgress || 0) * 0.05;
 
-        return Math.round(total / 8);
+        return Math.round(total);
     },
 
     fetchTodayStats: async () => {
@@ -320,102 +335,84 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
         }
     },
 
-    submitDailyQuiz: async (answers: QuizAnswers) => {
-        const { todayStats, updateProgress, checkQuizStatus } = get();
-        if (!todayStats) return;
+    submitDailyQuiz: async (answers: QuizAnswer[]) => {
+        const { todayStats, updateProgress, checkQuizStatus, quizQuestions } = get();
+        if (!todayStats) return false;
 
         const userId = useAuthStore.getState().session?.user?.id;
-        if (!userId) return;
+        if (!userId) return false;
 
         const updates: Partial<DailyStats> = { ...todayStats };
 
         // Helper to apply bounds
         const applyDelta = (current: number, delta: number) => Math.min(Math.max(current + delta, 0), 100);
 
-        // --- VÍCIOS COMPORTAMENTAIS ---
-        // Q1: Pornography
-        if (answers.pornography) updates.viciosProgress = applyDelta(updates.viciosProgress || 0, -5);
+        // Process dynamic answers based on database configuration
+        for (const answer of answers) {
+            const question = quizQuestions.find(q => q.id === answer.questionId);
+            if (!question) continue;
 
-        // Q2: Masturbation
-        if (answers.masturbation) {
-            updates.nofapStreak = 0;
-            updates.nofapProgress = applyDelta(updates.nofapProgress || 0, -10);
-        } else {
-            const newStreak = (updates.nofapStreak || 0) + 1;
-            updates.nofapStreak = newStreak;
-            // +1% if streak > 7
-            if (newStreak > 7) updates.nofapProgress = applyDelta(updates.nofapProgress || 0, 1);
+            const impact = answer.answer ? question.impact_sim : question.impact_nao;
+
+            if (impact) {
+                // Determine which pillar to update based on 'component' string
+                const targetComp = impact.component;
+                let pillarKey: keyof DailyStats | null = null;
+
+                if (targetComp === 'Vícios' || targetComp === 'NoPorn') pillarKey = 'viciosProgress';
+                else if (targetComp === 'NoFap') pillarKey = 'nofapProgress';
+                else if (targetComp === 'Redes') pillarKey = 'redesProgress';
+                else if (targetComp === 'Sono') pillarKey = 'sonoProgress';
+                else if (targetComp === 'Hidratação') pillarKey = 'hidratacaoProgress';
+                else if (targetComp === 'Alimentação') pillarKey = 'alimentacaoProgress';
+                else if (targetComp === 'Treino') pillarKey = 'treinoProgress';
+                else if (targetComp === 'Práticas') pillarKey = 'praticasProgress';
+
+                if (pillarKey) {
+                    updates[pillarKey] = applyDelta((updates[pillarKey] as number) || 0, impact.value);
+                }
+
+                if (impact.reset === 'NoFap') {
+                    updates.nofapStreak = 0;
+                }
+            }
+
+            // Streak logic for Masturbation (Question "Você se masturbou hoje?") 
+            // The DB has "reset": "NoFap" in impact_sim for Masturbation.
+            // But we need to increment streak if they didn't relapse and the question is the NoFap one
+            if (!answer.answer && question.question_text.toLowerCase().includes('masturbou')) {
+                const newStreak = (updates.nofapStreak || 0) + 1;
+                updates.nofapStreak = newStreak;
+                if (newStreak > 7) {
+                    updates.nofapProgress = applyDelta(updates.nofapProgress || 0, 1);
+                }
+            }
         }
 
-        // Q3: Redes Sociais
-        if (answers.socialMedia) updates.redesProgress = applyDelta(updates.redesProgress || 0, -3);
-        else updates.redesProgress = applyDelta(updates.redesProgress || 0, 0.5);
-
-        // Q4: Videogames
-        if (answers.videogames) updates.viciosProgress = applyDelta(updates.viciosProgress || 0, -2);
-
-        // --- SUBSTÂNCIAS ---
-        // Q5: Álcool
-        if (answers.alcohol) {
-            let penalty = -4;
-            if (answers.alcoholDrinks === '3-4') penalty = -6;
-            else if (answers.alcoholDrinks === '5-6') penalty = -8;
-            else if (answers.alcoholDrinks === '7+') penalty = -10;
-            updates.viciosProgress = applyDelta(updates.viciosProgress || 0, penalty);
-        }
-
-        // Q6: Cigarro
-        if (answers.cigarette) updates.viciosProgress = applyDelta(updates.viciosProgress || 0, -5);
-        else updates.viciosProgress = applyDelta(updates.viciosProgress || 0, 1);
-
-        // Q7: Maconha
-        if (answers.maconha) updates.viciosProgress = applyDelta(updates.viciosProgress || 0, -6);
-
-        // Q8: Drogas
-        if (answers.drugs) updates.viciosProgress = applyDelta(updates.viciosProgress || 0, -10);
-
-        // --- HÁBITOS BÁSICOS ---
-        // Q9: Sono
-        if (!answers.sleep) updates.sonoProgress = applyDelta(updates.sonoProgress || 0, -3);
-
-        // Q10: Hidratação
-        if (answers.hydration) updates.hidratacaoProgress = applyDelta(updates.hidratacaoProgress || 0, 1);
-        else updates.hidratacaoProgress = applyDelta(updates.hidratacaoProgress || 0, -1);
-
-        // Q11: Alimentação
-        if (answers.diet) updates.alimentacaoProgress = applyDelta(updates.alimentacaoProgress || 0, 1);
-        else updates.alimentacaoProgress = applyDelta(updates.alimentacaoProgress || 0, -2);
-
-        // Q12: Treinamento (Conditional)
-        if (answers.workout !== null) {
-            if (answers.workout) updates.treinoProgress = applyDelta(updates.treinoProgress || 0, 2);
-            else updates.treinoProgress = applyDelta(updates.treinoProgress || 0, -3);
-        }
-
-        // Q13: Práticas Testosterona
-        if (answers.practices) updates.praticasProgress = applyDelta(updates.praticasProgress || 0, 1);
-        else updates.praticasProgress = applyDelta(updates.praticasProgress || 0, -1);
-
-        // 1. Update stats
-        await updateProgress(updates);
-
-        // 2. Insert into daily_quiz_responses
+        // 1. Insert into daily_quiz_responses FIRST to ensure it's not a duplicate
         try {
-            await supabase.from('daily_quiz_responses').insert({
+            const { error: insertError } = await supabase.from('daily_quiz_responses').insert({
                 user_id: userId,
-                date: getTechnicalDate(),
-                responses: answers
+                quiz_date: getTechnicalDate(),
+                answers: answers,
+                points_earned: 3
             });
-            await checkQuizStatus();
-        } catch (error) {
-            console.error('Error saving quiz responses:', error);
-        }
 
-        // 3. Accountability +3 Activity Points
-        try {
-            useAuthStore.getState().incrementActivityPoints(3);
-        } catch (e) {
-            console.error('Failed to update activity points', e);
+            if (insertError) {
+                console.error('Error saving quiz responses:', insertError);
+                return false; // Indicate failure
+            }
+
+            // 2. ONLY if insert succeeds, update stats
+            await updateProgress(updates);
+            await checkQuizStatus();
+
+            // 3. Accountability +3 Activity Points
+            await useAuthStore.getState().incrementActivityPoints(3);
+            return true;
+        } catch (error) {
+            console.error('Error during quiz submission flow:', error);
+            return false;
         }
     }
 }));

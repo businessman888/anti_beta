@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { useAuthStore } from '../../store/authStore';
 import { HomeHeader } from './components/HomeHeader';
 import { TestosteroneCard } from './components/TestosteroneCard';
 import { DailyGoalsCard } from './components/DailyGoalsCard';
+import { useProgressStore } from '../../store/progressStore';
 import { WorkoutCard } from './components/WorkoutCard';
 import { MealsCard } from './components/MealsCard';
 import { HydrationCard } from './components/HydrationCard';
@@ -42,6 +43,15 @@ export const HomeScreen = () => {
     } = usePlanStore();
 
     const { user } = useAuthStore();
+    const { isQuizLocked, quizAvailableIn, checkQuizStatus } = useProgressStore();
+
+    useFocusEffect(
+        React.useCallback(() => {
+            if (user) {
+                checkQuizStatus();
+            }
+        }, [user, checkQuizStatus])
+    );
 
     // In a real scenario, we would calculate current day/week/month based on plan start date
     // For now, we use the first day of the first week
@@ -158,8 +168,8 @@ export const HomeScreen = () => {
                 )}
 
                 <DailyQuizCard
-                    availableIn={homeMockData.dailyQuiz.availableIn}
-                    isLocked={homeMockData.dailyQuiz.isLocked}
+                    availableIn={quizAvailableIn}
+                    isLocked={isQuizLocked}
                     onPress={() => navigation.navigate('DailyQuiz')}
                 />
             </ScrollView>

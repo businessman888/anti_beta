@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,36 +7,32 @@ import { RootStackParamList } from '../../types/navigation';
 import { ArrowLeft, Check, FastForward } from 'lucide-react-native';
 import { QuizProgressBar } from '../../components/quiz/QuizProgressBar';
 import { QuizOptionSelection } from '../../components/quiz/inputs/QuizOptionSelection';
-import { useProgressStore } from '../../store/progressStore';
+import { useProgressStore, QuizAnswer } from '../../store/progressStore';
 
 export const DailyQuizScreen = () => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { submitDailyQuiz } = useProgressStore();
+    const { submitDailyQuiz, quizQuestions, fetchQuizQuestions, isLoading: storeLoading } = useProgressStore();
 
     const [currentStep, setCurrentStep] = useState(0);
-    const totalSteps = 13;
-
-    const [answers, setAnswers] = useState<any>({
-        pornography: null,
-        masturbation: null,
-        socialMedia: null,
-        videogames: null,
-        alcohol: null,
-        alcoholDrinks: null,
-        cigarette: null,
-        maconha: null,
-        drugs: null,
-        sleep: null,
-        hydration: null,
-        diet: null,
-        workout: null,
-        practices: null,
-    });
-
+    const [answers, setAnswers] = useState<Record<string, boolean>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
 
-    const updateAnswer = (key: string, value: any) => {
-        setAnswers((prev: any) => ({ ...prev, [key]: value }));
+    useEffect(() => {
+        const loadQuestions = async () => {
+            if (quizQuestions.length === 0) {
+                await fetchQuizQuestions();
+            }
+            setInitialLoading(false);
+        };
+        loadQuestions();
+    }, []);
+
+    const totalSteps = quizQuestions.length;
+    const currentQuestion = quizQuestions[currentStep];
+
+    const updateAnswer = (questionId: string, value: string) => {
+        setAnswers((prev) => ({ ...prev, [questionId]: value === 'true' }));
     };
 
     const handleNext = async () => {
@@ -45,27 +41,19 @@ export const DailyQuizScreen = () => {
         } else {
             setIsSubmitting(true);
 
-            // Format workout before sending
-            const finalWorkout = answers.workout === 'not_applicable' ? null : answers.workout === 'true';
+            const formattedAnswers: QuizAnswer[] = Object.entries(answers).map(([questionId, answer]) => ({
+                questionId,
+                answer
+            }));
 
-            await submitDailyQuiz({
-                pornography: answers.pornography === 'true',
-                masturbation: answers.masturbation === 'true',
-                socialMedia: answers.socialMedia === 'true',
-                videogames: answers.videogames === 'true',
-                alcohol: answers.alcohol === 'true',
-                alcoholDrinks: answers.alcoholDrinks,
-                cigarette: answers.cigarette === 'true',
-                maconha: answers.maconha === 'true',
-                drugs: answers.drugs === 'true',
-                sleep: answers.sleep === 'true',
-                hydration: answers.hydration === 'true',
-                diet: answers.diet === 'true',
-                workout: finalWorkout,
-                practices: answers.practices === 'true',
-            });
+            const success = await submitDailyQuiz(formattedAnswers);
             setIsSubmitting(false);
-            navigation.goBack();
+
+            if (success) {
+                navigation.goBack();
+            } else {
+                Alert.alert("Erro", "Não foi possível salvar as respostas do quiz. Você já respondeu hoje?");
+            }
         }
     };
 
@@ -78,24 +66,8 @@ export const DailyQuizScreen = () => {
     };
 
     const isStepValid = () => {
-        switch (currentStep) {
-            case 0: return answers.pornography !== null;
-            case 1: return answers.masturbation !== null;
-            case 2: return answers.socialMedia !== null;
-            case 3: return answers.videogames !== null;
-            case 4:
-                if (answers.alcohol === 'true') return answers.alcoholDrinks !== null;
-                return answers.alcohol !== null;
-            case 5: return answers.cigarette !== null;
-            case 6: return answers.maconha !== null;
-            case 7: return answers.drugs !== null;
-            case 8: return answers.sleep !== null;
-            case 9: return answers.hydration !== null;
-            case 10: return answers.diet !== null;
-            case 11: return answers.workout !== null;
-            case 12: return answers.practices !== null;
-            default: return true;
-        }
+        if (!currentQuestion) return false;
+        return answers[currentQuestion.id] !== undefined;
     };
 
     const yesNoOptions = [
@@ -103,167 +75,27 @@ export const DailyQuizScreen = () => {
         { id: 'false', label: 'Não' }
     ];
 
-    const renderStepContent = () => {
-        switch (currentStep) {
-            case 0:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Vícios Comportamentais</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você consumiu <Text className="text-orange-500">pornografia</Text> hoje?
-                        </Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.pornography} onSelect={(val) => updateAnswer('pornography', val)} />
-                    </View>
-                );
-            case 1:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Vícios Comportamentais</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você se <Text className="text-orange-500">masturbou</Text> hoje?
-                        </Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.masturbation} onSelect={(val) => updateAnswer('masturbation', val)} />
-                    </View>
-                );
-            case 2:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Vícios Comportamentais</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você passou mais de 2h em <Text className="text-orange-500">redes sociais</Text> hoje?
-                        </Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.socialMedia} onSelect={(val) => updateAnswer('socialMedia', val)} />
-                    </View>
-                );
-            case 3:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Vícios Comportamentais</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você jogou <Text className="text-orange-500">videogame</Text> por mais de 2h hoje?
-                        </Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.videogames} onSelect={(val) => updateAnswer('videogames', val)} />
-                    </View>
-                );
-            case 4:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Substâncias</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você bebeu <Text className="text-orange-500">álcool</Text> hoje?
-                        </Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.alcohol} onSelect={(val) => updateAnswer('alcohol', val)} />
+    if (initialLoading || storeLoading && quizQuestions.length === 0) {
+        return (
+            <SafeAreaView className="flex-1 bg-zinc-950 justify-center items-center">
+                <ActivityIndicator size="large" color="#ea580c" />
+                <Text className="text-zinc-500 mt-4">Carregando perguntas Alfa...</Text>
+            </SafeAreaView>
+        );
+    }
 
-                        {answers.alcohol === 'true' && (
-                            <View className="mt-8 border-t border-zinc-900 pt-8">
-                                <Text className="text-zinc-400 text-lg font-medium text-center mb-6">Quantas doses?</Text>
-                                <QuizOptionSelection
-                                    options={[
-                                        { id: '1-2', label: '1 - 2 doses' },
-                                        { id: '3-4', label: '3 - 4 doses' },
-                                        { id: '5-6', label: '5 - 6 doses' },
-                                        { id: '7+', label: '7+ doses' },
-                                    ]}
-                                    selectedId={answers.alcoholDrinks}
-                                    onSelect={(val) => updateAnswer('alcoholDrinks', val)}
-                                />
-                            </View>
-                        )}
-                    </View>
-                );
-            case 5:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Substâncias</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você fumou <Text className="text-orange-500">cigarro</Text> hoje?
-                        </Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.cigarette} onSelect={(val) => updateAnswer('cigarette', val)} />
-                    </View>
-                );
-            case 6:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Substâncias</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você fumou <Text className="text-orange-500">maconha</Text> hoje?
-                        </Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.maconha} onSelect={(val) => updateAnswer('maconha', val)} />
-                    </View>
-                );
-            case 7:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Substâncias</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você usou <Text className="text-orange-500">drogas recreativas</Text> hoje?
-                        </Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.drugs} onSelect={(val) => updateAnswer('drugs', val)} />
-                    </View>
-                );
-            case 8:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Hábitos Diários</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você dormiu pelo menos <Text className="text-orange-500">7 horas</Text> à noite?
-                        </Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.sleep} onSelect={(val) => updateAnswer('sleep', val)} />
-                    </View>
-                );
-            case 9:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Hábitos Diários</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você bebeu pelo menos <Text className="text-orange-500">2L de água</Text> hoje?
-                        </Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.hydration} onSelect={(val) => updateAnswer('hydration', val)} />
-                    </View>
-                );
-            case 10:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Hábitos Diários</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você seguiu o <Text className="text-orange-500">plano alimentar</Text> hoje?
-                        </Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.diet} onSelect={(val) => updateAnswer('diet', val)} />
-                    </View>
-                );
-            case 11:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Metas do Dia</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você completou o seu <Text className="text-orange-500">treino</Text> de hoje?
-                        </Text>
-                        <QuizOptionSelection
-                            options={[
-                                { id: 'true', label: 'Sim, treinei' },
-                                { id: 'false', label: 'Não treinei' },
-                                { id: 'not_applicable', label: 'Não tinha treino hoje' },
-                            ]}
-                            selectedId={answers.workout}
-                            onSelect={(val) => updateAnswer('workout', val)}
-                        />
-                    </View>
-                );
-            case 12:
-                return (
-                    <View className="w-full">
-                        <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">Metas do Dia</Text>
-                        <Text className="text-white text-3xl font-bold mb-8 text-center px-4">
-                            Você fez pelo menos 1<Text className="text-orange-500"> prática de testosterona</Text>?
-                        </Text>
-                        <Text className="text-zinc-500 text-sm text-center -mt-6 mb-8">(Banho gelado, meditação, grounding)</Text>
-                        <QuizOptionSelection options={yesNoOptions} selectedId={answers.practices} onSelect={(val) => updateAnswer('practices', val)} />
-                    </View>
-                );
-            default:
-                return null;
-        }
-    };
+    if (totalSteps === 0) {
+        return (
+            <SafeAreaView className="flex-1 bg-zinc-950 p-6 justify-center items-center">
+                <Text className="text-white text-xl text-center">Nenhuma pergunta encontrada no banco de dados.</Text>
+                <TouchableOpacity onPress={() => navigation.goBack()} className="mt-8 bg-zinc-800 px-6 py-3 rounded-xl">
+                    <Text className="text-white font-bold">Voltar</Text>
+                </TouchableOpacity>
+            </SafeAreaView>
+        );
+    }
+
+    const currentAnswerValue = answers[currentQuestion.id] !== undefined ? answers[currentQuestion.id].toString() : '';
 
     return (
         <SafeAreaView className="flex-1 bg-zinc-950">
@@ -277,7 +109,22 @@ export const DailyQuizScreen = () => {
             </View>
 
             <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingBottom: 120 }}>
-                {renderStepContent()}
+                <View className="w-full px-4">
+                    <Text className="text-zinc-500 font-bold text-sm tracking-widest uppercase mb-4 text-center">
+                        {currentQuestion.category}
+                    </Text>
+
+                    {/* Highlight keywords in orange dynamically or just display normally - we will just display text, maybe highlight the first substantive but let's just make it bold white */}
+                    <Text className="text-white text-3xl font-bold mb-8 text-center leading-tight">
+                        {currentQuestion.question_text}
+                    </Text>
+
+                    <QuizOptionSelection
+                        options={yesNoOptions}
+                        selectedId={currentAnswerValue}
+                        onSelect={(val) => updateAnswer(currentQuestion.id, val)}
+                    />
+                </View>
             </ScrollView>
 
             <View className="absolute bottom-0 w-full p-6 bg-zinc-950/90 pb-10">
