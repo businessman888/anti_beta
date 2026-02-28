@@ -34,6 +34,17 @@ export class WeeklyInsightsService {
             return existingInsight;
         }
 
+        // Se NÃO for domingo e não tem relatório anterior, não gera um novo.
+        if (day !== 0) {
+            return {
+                id: 'waiting_insight',
+                status: 'waiting',
+                pointsOfImprovement: ['Aguarde o progresso da semana para receber seus pontos de melhoria.'],
+                nextObjectiveTitle: 'Coletando dados Alpha...',
+                nextObjectivePercent: 0,
+            };
+        }
+
         // 2. Coletando os últimos 7 dias de atividades
         const sevenDaysAgo = new Date(startOfWeek);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);

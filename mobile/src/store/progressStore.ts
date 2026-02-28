@@ -34,6 +34,7 @@ export interface QuizAnswer {
 
 export interface WeeklyInsight {
     id: string;
+    status?: string;
     pointsOfImprovement: string[];
     nextObjectiveTitle: string;
     nextObjectivePercent: number;
@@ -165,14 +166,14 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
         try {
             // we will use fetch since we might not have apiClient imported in this file yet
             // or we can import apiClient at the top. Let's lazily require it or just import it.
-            // Actually, we can use the default API url + bearer token.
             const { apiClient } = require('../services/api/client');
-            const response = await apiClient.get('/insights/weekly');
+            const response = await apiClient.get(`/insights/weekly/${userId}`);
 
             if (response.data) {
                 set({
                     weeklyInsight: {
                         id: response.data.id,
+                        status: response.data.status,
                         pointsOfImprovement: response.data.pointsOfImprovement,
                         nextObjectiveTitle: response.data.nextObjectiveTitle,
                         nextObjectivePercent: response.data.nextObjectivePercent,
