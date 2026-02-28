@@ -19,6 +19,7 @@ interface AuthState {
     loadUserData: (userId: string) => Promise<void>;
     signOut: () => Promise<void>;
     initialize: () => Promise<void>;
+    incrementActivityPoints: (points: number) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -56,6 +57,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     signOut: async () => {
         await supabase.auth.signOut();
         set({ session: null, user: null, profile: null, onboardingCompleted: false });
+    },
+
+    incrementActivityPoints: async (points: number) => {
+        const { user } = get();
+        if (!user) return;
+        try {
+            const { data } = await supabase
+                .from('user_profiles')
+                .select('activityPoints')
+                .eq('userId', user.id)
+                .maybeSingle();
+
+            const currentPoints = data?.activityPoints || 0;
+            await supabase
+                .from('user_profiles')
+                .update({ activityPoints: currentPoints + points })
+                .eq('userId', user.id);
+        } catch (error) {
+            console.error('Error incrementing activity points:', error);
+        }
     },
 
     loadUserData: async (userId: string) => {

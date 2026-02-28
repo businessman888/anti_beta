@@ -18,25 +18,99 @@ export interface DailyStats {
     testoPoints: number;
 }
 
+interface QuizAnswers {
+    pornography: boolean;
+    masturbation: boolean;
+    socialMedia: boolean;
+    videogames: boolean;
+    alcohol: boolean;
+    alcoholDrinks?: '1-2' | '3-4' | '5-6' | '7+';
+    cigarette: boolean;
+    maconha: boolean;
+    drugs: boolean;
+    sleep: boolean;
+    hydration: boolean;
+    diet: boolean;
+    workout: boolean | null;
+    practices: boolean;
+}
+
 interface ProgressState {
     todayStats: DailyStats | null;
+    hasCompletedQuizToday: boolean;
+    quizAvailableIn: string;
+    isQuizLocked: boolean;
     isLoading: boolean;
     error: string | null;
 
+    checkQuizStatus: () => Promise<void>;
     fetchTodayStats: () => Promise<void>;
     updateProgress: (updates: Partial<DailyStats>) => Promise<void>;
     incrementPillar: (pillar: keyof DailyStats, amount: number) => Promise<void>;
-    submitDailyQuiz: (answers: any) => Promise<void>;
+    submitDailyQuiz: (answers: QuizAnswers) => Promise<void>;
     initializeFromOnboarding: (answers: any) => Promise<void>;
     calculateTestoPoints: (stats: DailyStats) => number;
 }
 
-const getTodayString = () => new Date().toISOString().split('T')[0];
+const getTechnicalDate = () => {
+    const now = new Date();
+    // Vira o dia apenas às 03:00 da manhã
+    if (now.getHours() < 3) {
+        now.setDate(now.getDate() - 1);
+    }
+    return now.toISOString().split('T')[0];
+};
+
+const getQuizAvailability = () => {
+    const now = new Date();
+    const target = new Date(now);
+
+    // Se ainda for antes das 3h, o próximo reset é hoje às 3h
+    // Se for depois das 3h, o próximo reset é amanhã às 3h
+    if (now.getHours() >= 3) {
+        target.setDate(target.getDate() + 1);
+    }
+    target.setHours(3, 0, 0, 0);
+
+    const diffMs = target.getTime() - now.getTime();
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    return `${hours}h ${mins}m`;
+};
 
 export const useProgressStore = create<ProgressState>()((set, get) => ({
     todayStats: null,
+    hasCompletedQuizToday: false,
+    quizAvailableIn: getQuizAvailability(),
+    isQuizLocked: true,
     isLoading: false,
     error: null,
+
+    checkQuizStatus: async () => {
+        const userId = useAuthStore.getState().session?.user?.id;
+        if (!userId) return;
+
+        const technicalDate = getTechnicalDate();
+        set({ quizAvailableIn: getQuizAvailability() });
+
+        try {
+            const { data } = await supabase
+                .from('daily_quiz_responses')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('date', technicalDate)
+                .maybeSingle();
+
+            const isLocked = !!data;
+            set({
+                hasCompletedQuizToday: isLocked,
+                isQuizLocked: isLocked
+            });
+        } catch (error) {
+            console.error('Error checking quiz status:', error);
+        }
+    },
 
     calculateTestoPoints: (stats: DailyStats) => {
         // Average of the 8 pillars
@@ -58,14 +132,16 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
         if (!userId) return;
 
         set({ isLoading: true, error: null });
-        const today = getTodayString();
+        const technicalDate = getTechnicalDate();
+
+        await get().checkQuizStatus();
 
         try {
             const { data, error } = await supabase
                 .from('daily_stats')
                 .select('*')
                 .eq('user_id', userId)
-                .eq('date', today)
+                .eq('date', technicalDate)
                 .maybeSingle();
 
             if (error) throw error;
@@ -106,7 +182,7 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
 
                 const newStats: DailyStats = {
                     userId,
-                    date: today,
+                    date: technicalDate,
                     nofapProgress: newNofapProgress,
                     nofapStreak: lastStreak, // Inherit yesterday's streak initially, updated in Quiz
                     treinoProgress: 0,
@@ -124,7 +200,7 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
                     .from('daily_stats')
                     .insert({
                         user_id: userId,
-                        date: today,
+                        date: technicalDate,
                         nofap_progress: newStats.nofapProgress,
                         nofap_streak: newStats.nofapStreak,
                         testo_points: newStats.testoPoints,
@@ -210,11 +286,11 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
 
         const initialProgress = Math.min((initialStreak / 90) * 100, 100);
 
-        const today = getTodayString();
+        const technicalDate = getTechnicalDate();
 
         const newStats: DailyStats = {
             userId,
-            date: today,
+            date: technicalDate,
             nofapStreak: initialStreak,
             nofapProgress: initialProgress,
             treinoProgress: 0,
@@ -232,7 +308,7 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
                 .from('daily_stats')
                 .upsert({
                     user_id: userId,
-                    date: today,
+                    date: technicalDate,
                     nofap_streak: initialStreak,
                     nofap_progress: initialProgress,
                     testo_points: newStats.testoPoints,
@@ -244,43 +320,102 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
         }
     },
 
-    submitDailyQuiz: async (answers: any) => {
-        const { todayStats, updateProgress } = get();
+    submitDailyQuiz: async (answers: QuizAnswers) => {
+        const { todayStats, updateProgress, checkQuizStatus } = get();
         if (!todayStats) return;
 
-        const updates: Partial<DailyStats> = {};
+        const userId = useAuthStore.getState().session?.user?.id;
+        if (!userId) return;
 
-        // Q1: NoFap (Did you consume porn or masturbate?)
-        if (answers.relapsed) {
+        const updates: Partial<DailyStats> = { ...todayStats };
+
+        // Helper to apply bounds
+        const applyDelta = (current: number, delta: number) => Math.min(Math.max(current + delta, 0), 100);
+
+        // --- VÍCIOS COMPORTAMENTAIS ---
+        // Q1: Pornography
+        if (answers.pornography) updates.viciosProgress = applyDelta(updates.viciosProgress || 0, -5);
+
+        // Q2: Masturbation
+        if (answers.masturbation) {
             updates.nofapStreak = 0;
-            updates.nofapProgress = 0;
+            updates.nofapProgress = applyDelta(updates.nofapProgress || 0, -10);
         } else {
-            const newStreak = todayStats.nofapStreak + 1;
+            const newStreak = (updates.nofapStreak || 0) + 1;
             updates.nofapStreak = newStreak;
-            updates.nofapProgress = Math.min((newStreak / 90) * 100, 100);
+            // +1% if streak > 7
+            if (newStreak > 7) updates.nofapProgress = applyDelta(updates.nofapProgress || 0, 1);
         }
 
-        // Q2: Sleep Hours
-        const hours = parseFloat(answers.sleepHours) || 0;
-        if (hours >= 7 && hours <= 9) updates.sonoProgress = 100;
-        else if (hours >= 6 || hours <= 10) updates.sonoProgress = 70;
-        else updates.sonoProgress = 30;
+        // Q3: Redes Sociais
+        if (answers.socialMedia) updates.redesProgress = applyDelta(updates.redesProgress || 0, -3);
+        else updates.redesProgress = applyDelta(updates.redesProgress || 0, 0.5);
 
-        // Q3: Social Media
-        const smTime = answers.socialMediaTime;
-        if (smTime === 'menos_1h') updates.redesProgress = 100;
-        else if (smTime === '1_2h') updates.redesProgress = 80;
-        else if (smTime === '3_4h') updates.redesProgress = 40;
-        else updates.redesProgress = 10;
+        // Q4: Videogames
+        if (answers.videogames) updates.viciosProgress = applyDelta(updates.viciosProgress || 0, -2);
 
-        // Q4: Vices (Substances, Alcohol)
-        if (answers.usedVices) updates.viciosProgress = 0;
-        else updates.viciosProgress = 100;
+        // --- SUBSTÂNCIAS ---
+        // Q5: Álcool
+        if (answers.alcohol) {
+            let penalty = -4;
+            if (answers.alcoholDrinks === '3-4') penalty = -6;
+            else if (answers.alcoholDrinks === '5-6') penalty = -8;
+            else if (answers.alcoholDrinks === '7+') penalty = -10;
+            updates.viciosProgress = applyDelta(updates.viciosProgress || 0, penalty);
+        }
 
-        // Q5: Practices/Meditation
-        if (answers.didPractices) updates.praticasProgress = 100;
-        else updates.praticasProgress = 0;
+        // Q6: Cigarro
+        if (answers.cigarette) updates.viciosProgress = applyDelta(updates.viciosProgress || 0, -5);
+        else updates.viciosProgress = applyDelta(updates.viciosProgress || 0, 1);
 
+        // Q7: Maconha
+        if (answers.maconha) updates.viciosProgress = applyDelta(updates.viciosProgress || 0, -6);
+
+        // Q8: Drogas
+        if (answers.drugs) updates.viciosProgress = applyDelta(updates.viciosProgress || 0, -10);
+
+        // --- HÁBITOS BÁSICOS ---
+        // Q9: Sono
+        if (!answers.sleep) updates.sonoProgress = applyDelta(updates.sonoProgress || 0, -3);
+
+        // Q10: Hidratação
+        if (answers.hydration) updates.hidratacaoProgress = applyDelta(updates.hidratacaoProgress || 0, 1);
+        else updates.hidratacaoProgress = applyDelta(updates.hidratacaoProgress || 0, -1);
+
+        // Q11: Alimentação
+        if (answers.diet) updates.alimentacaoProgress = applyDelta(updates.alimentacaoProgress || 0, 1);
+        else updates.alimentacaoProgress = applyDelta(updates.alimentacaoProgress || 0, -2);
+
+        // Q12: Treinamento (Conditional)
+        if (answers.workout !== null) {
+            if (answers.workout) updates.treinoProgress = applyDelta(updates.treinoProgress || 0, 2);
+            else updates.treinoProgress = applyDelta(updates.treinoProgress || 0, -3);
+        }
+
+        // Q13: Práticas Testosterona
+        if (answers.practices) updates.praticasProgress = applyDelta(updates.praticasProgress || 0, 1);
+        else updates.praticasProgress = applyDelta(updates.praticasProgress || 0, -1);
+
+        // 1. Update stats
         await updateProgress(updates);
+
+        // 2. Insert into daily_quiz_responses
+        try {
+            await supabase.from('daily_quiz_responses').insert({
+                user_id: userId,
+                date: getTechnicalDate(),
+                responses: answers
+            });
+            await checkQuizStatus();
+        } catch (error) {
+            console.error('Error saving quiz responses:', error);
+        }
+
+        // 3. Accountability +3 Activity Points
+        try {
+            useAuthStore.getState().incrementActivityPoints(3);
+        } catch (e) {
+            console.error('Failed to update activity points', e);
+        }
     }
 }));
