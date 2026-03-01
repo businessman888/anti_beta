@@ -1,18 +1,27 @@
 import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PollyClient, SynthesizeSpeechCommand, OutputFormat, Engine, TextType } from '@aws-sdk/client-polly';
+import {
+    TranscribeClient,
+    StartTranscriptionJobCommand,
+    GetTranscriptionJobCommand,
+    TranscriptionJobStatus,
+    DeleteTranscriptionJobCommand,
+} from '@aws-sdk/client-transcribe';
 
 @Injectable()
 export class AwsService {
     private readonly logger = new Logger(AwsService.name);
     private readonly s3: S3Client;
     private readonly polly: PollyClient;
+    private readonly transcribe: TranscribeClient;
     private readonly bucket: string;
+    private readonly region: string;
 
     constructor(private configService: ConfigService) {
-        const region = this.configService.get<string>('aws.region', 'us-east-1');
+        this.region = this.configService.get<string>('aws.region', 'us-east-1');
         const credentials = {
             accessKeyId: this.configService.get<string>('aws.accessKeyId', ''),
             secretAccessKey: this.configService.get<string>('aws.secretAccessKey', ''),
@@ -20,8 +29,9 @@ export class AwsService {
 
         this.bucket = this.configService.get<string>('aws.s3Bucket', 'anti-beta-agent-audio');
 
-        this.s3 = new S3Client({ region, credentials });
-        this.polly = new PollyClient({ region, credentials });
+        this.s3 = new S3Client({ region: this.region, credentials });
+        this.polly = new PollyClient({ region: this.region, credentials });
+        this.transcribe = new TranscribeClient({ region: this.region, credentials });
     }
 
     /**
@@ -60,6 +70,128 @@ export class AwsService {
             this.logger.error(`Falha ao gerar Presigned URL: ${error}`);
             throw new InternalServerErrorException('Falha ao gerar link de áudio.');
         }
+    }
+
+    /**
+     * Speech-to-Text using Amazon Transcribe.
+     * Flow: Upload audio to S3 → Start TranscriptionJob → Poll → Fetch result → Return transcript.
+     */
+    async transcribeAudio(audioBuffer: Buffer, mimetype: string, userId: string): Promise<string> {
+        const jobId = crypto.randomUUID();
+        const extension = this.getExtensionFromMime(mimetype);
+        const inputKey = `inputs/${userId}/${jobId}.${extension}`;
+        const jobName = `anti-beta-${jobId}`;
+
+        try {
+            // 1. Upload input audio to S3
+            await this.uploadAudio(audioBuffer, inputKey, mimetype);
+
+            const s3Uri = `s3://${this.bucket}/${inputKey}`;
+
+            // 2. Start Transcription Job
+            await this.transcribe.send(
+                new StartTranscriptionJobCommand({
+                    TranscriptionJobName: jobName,
+                    LanguageCode: 'pt-BR',
+                    MediaFormat: extension as any,
+                    Media: { MediaFileUri: s3Uri },
+                    Settings: {
+                        ShowSpeakerLabels: false,
+                    },
+                }),
+            );
+
+            this.logger.log(`[${userId}] Transcribe job started: ${jobName}`);
+
+            // 3. Poll for completion (max ~45s with 1.5s intervals)
+            const transcript = await this.pollTranscriptionJob(jobName, userId);
+
+            // 4. Cleanup: delete input audio from S3 and the transcription job
+            this.cleanupTranscription(inputKey, jobName).catch((e) =>
+                this.logger.warn(`Cleanup failed: ${e}`),
+            );
+
+            return transcript;
+        } catch (error) {
+            if (error instanceof InternalServerErrorException) throw error;
+            this.logger.error(`Falha no Transcribe STT: ${error}`);
+            // Attempt cleanup on error
+            this.cleanupTranscription(inputKey, jobName).catch(() => { });
+            throw new InternalServerErrorException(
+                'Falha ao transcrever áudio. Tente novamente.',
+            );
+        }
+    }
+
+    private async pollTranscriptionJob(jobName: string, userId: string): Promise<string> {
+        const maxAttempts = 30; // 30 * 1.5s = 45s max wait
+        const intervalMs = 1500;
+
+        for (let i = 0; i < maxAttempts; i++) {
+            await this.sleep(intervalMs);
+
+            const { TranscriptionJob: job } = await this.transcribe.send(
+                new GetTranscriptionJobCommand({ TranscriptionJobName: jobName }),
+            );
+
+            if (!job) continue;
+
+            if (job.TranscriptionJobStatus === TranscriptionJobStatus.COMPLETED) {
+                const transcriptUri = job.Transcript?.TranscriptFileUri;
+                if (!transcriptUri) {
+                    throw new InternalServerErrorException('Transcribe completou mas não retornou URI.');
+                }
+
+                // Fetch the transcript JSON from the URI
+                const transcript = await this.fetchTranscriptFromUri(transcriptUri);
+                this.logger.log(`[${userId}] Transcribe concluído em ${(i + 1) * 1.5}s`);
+                return transcript;
+            }
+
+            if (job.TranscriptionJobStatus === TranscriptionJobStatus.FAILED) {
+                this.logger.error(`Transcribe job failed: ${job.FailureReason}`);
+                throw new InternalServerErrorException(
+                    'Não consegui entender o áudio. Fale mais claro e tente novamente.',
+                );
+            }
+        }
+
+        throw new InternalServerErrorException(
+            'Timeout na transcrição do áudio. Tente um áudio mais curto.',
+        );
+    }
+
+    private async fetchTranscriptFromUri(uri: string): Promise<string> {
+        try {
+            const response = await fetch(uri);
+            const data = await response.json();
+            const transcript: string =
+                data?.results?.transcripts?.[0]?.transcript || '';
+
+            if (!transcript.trim()) {
+                throw new InternalServerErrorException(
+                    'Não consegui entender o áudio. Fale mais claro e tente novamente.',
+                );
+            }
+
+            return transcript;
+        } catch (error) {
+            if (error instanceof InternalServerErrorException) throw error;
+            this.logger.error(`Falha ao buscar transcript: ${error}`);
+            throw new InternalServerErrorException('Falha ao recuperar transcrição.');
+        }
+    }
+
+    private async cleanupTranscription(inputKey: string, jobName: string): Promise<void> {
+        // Delete S3 input file
+        await this.s3.send(
+            new DeleteObjectCommand({ Bucket: this.bucket, Key: inputKey }),
+        ).catch(() => { });
+
+        // Delete Transcribe job
+        await this.transcribe.send(
+            new DeleteTranscriptionJobCommand({ TranscriptionJobName: jobName }),
+        ).catch(() => { });
     }
 
     /**
@@ -106,4 +238,24 @@ export class AwsService {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&apos;');
     }
+
+    private getExtensionFromMime(mime: string): string {
+        const map: Record<string, string> = {
+            'audio/mp4': 'mp4',
+            'audio/m4a': 'mp4',
+            'audio/x-m4a': 'mp4',
+            'audio/mpeg': 'mp3',
+            'audio/wav': 'wav',
+            'audio/webm': 'webm',
+            'audio/ogg': 'ogg',
+            'audio/aac': 'mp4',
+            'audio/flac': 'flac',
+        };
+        return map[mime] || 'mp4';
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
 }
+

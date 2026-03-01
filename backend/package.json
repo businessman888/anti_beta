@@ -26,7 +26,6 @@
     "@aws-sdk/client-transcribe": "^3.1000.0",
     "@aws-sdk/lib-storage": "^3.1000.0",
     "@aws-sdk/s3-request-presigner": "^3.1000.0",
-    "@deepgram/sdk": "^3.13.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",

@@ -1,7 +1,6 @@
 import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AwsService } from '../aws/aws.service';
-import { DeepgramService } from '../speech/deepgram.service';
 import { AnthropicService, AgentUserContext } from './anthropic.service';
 import { VoiceInteractionResponseDto } from './dto/voice-interaction-response.dto';
 
@@ -12,26 +11,25 @@ export class ConversationalService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly aws: AwsService,
-        private readonly deepgram: DeepgramService,
         private readonly anthropic: AnthropicService,
     ) { }
 
     /**
      * Full voice interaction pipeline:
-     * 1. STT (Deepgram Nova-2)
+     * 1. STT (Amazon Transcribe: S3 upload → TranscriptionJob → Poll → Fetch)
      * 2. Fetch user context from Supabase (Prisma)
      * 3. LLM (Claude 3.5 Haiku with Prompt Caching)
      * 4. TTS (Polly Neural, voice Thiago, SSML)
-     * 5. Upload to S3 + Presigned URL
+     * 5. Upload response to S3 + Presigned URL
      */
     async processVoiceInteraction(
         userId: string,
         audioBuffer: Buffer,
         mimetype: string,
     ): Promise<VoiceInteractionResponseDto> {
-        // ========== 1. STT: Deepgram Nova-2 (~200ms) ==========
-        this.logger.log(`[${userId}] Iniciando STT...`);
-        const transcribedText = await this.deepgram.transcribeAudio(audioBuffer, mimetype);
+        // ========== 1. STT: Amazon Transcribe ==========
+        this.logger.log(`[${userId}] Iniciando STT (Transcribe)...`);
+        const transcribedText = await this.aws.transcribeAudio(audioBuffer, mimetype, userId);
         this.logger.log(`[${userId}] STT concluído: "${transcribedText.substring(0, 50)}..."`);
 
         // ========== 2. Buscar contexto do usuário no Supabase ==========

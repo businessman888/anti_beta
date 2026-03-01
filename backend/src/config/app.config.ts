@@ -19,9 +19,6 @@ export default () => ({
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
         s3Bucket: process.env.AWS_S3_BUCKET || 'anti-beta-agent-audio',
     },
-    deepgram: {
-        apiKey: process.env.DEEPGRAM_API_KEY || '',
-    },
     anthropic: {
         apiKey: process.env.ANTHROPIC_API_KEY || '',
     },
