@@ -34,6 +34,28 @@ export class WeeklyInsightsService {
             return existingInsight;
         }
 
+        // 2. Coletando as atividades da semana atual
+        const stats = await this.prisma.dailyStats.findMany({
+            where: {
+                userId,
+                date: { gte: startOfWeek },
+            },
+            orderBy: { date: 'asc' },
+        });
+
+        // 3. Regra de 4 Dias: Conta as datas com progresso nesta semana
+        const distinctDays = new Set(stats.map(s => s.date.toISOString().split('T')[0]));
+
+        if (distinctDays.size < 4) {
+            return {
+                id: 'waiting_insight',
+                status: 'INSUFFICIENT_DATA',
+                pointsOfImprovement: [],
+                nextObjectiveTitle: 'Aguardando consistência...',
+                nextObjectivePercent: 0,
+            };
+        }
+
         // Se NÃO for domingo e não tem relatório anterior, não gera um novo.
         if (day !== 0) {
             return {
@@ -45,37 +67,12 @@ export class WeeklyInsightsService {
             };
         }
 
-        // 2. Coletando os últimos 7 dias de atividades
-        const sevenDaysAgo = new Date(startOfWeek);
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-        const stats = await this.prisma.dailyStats.findMany({
-            where: {
-                userId,
-                date: { gte: sevenDaysAgo },
-            },
-            orderBy: { date: 'asc' },
-        });
-
         const completions = await this.prisma.dailyCompletion.findMany({
             where: {
                 userId,
-                completedAt: { gte: sevenDaysAgo },
+                completedAt: { gte: startOfWeek },
             },
         });
-
-        // 3. Regra de Consistência (min. 3 dias)
-        // Coleta dias distintos na tabela daily_stats
-        const distinctDays = new Set(stats.map(s => s.date.toISOString().split('T')[0]));
-        if (distinctDays.size < 3) {
-            return {
-                id: 'waiting_insight',
-                status: 'waiting',
-                pointsOfImprovement: ['Poucos dados coletados. Continue preenchendo o app diariamente (Mínimo 3 dias necessários).'],
-                nextObjectiveTitle: 'Coletando dados Alpha...',
-                nextObjectivePercent: 0,
-            };
-        }
 
         // 4. Preparar contexto pro Claude
         const contextData = {

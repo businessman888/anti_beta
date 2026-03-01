@@ -265,7 +265,13 @@ export const TestoScreen = () => {
                                 <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
                                     <Text className="text-zinc-400 text-sm text-center leading-5">{insightError}</Text>
                                 </View>
-                            ) : weeklyInsight ? (
+                            ) : weeklyInsight?.status === 'INSUFFICIENT_DATA' ? (
+                                <View className="items-start mb-2">
+                                    <Text className="text-zinc-300 text-sm leading-5">
+                                        Continue com consistência. Este card analisa seu desempenho semanal todo domingo, desde que você tenha pelo menos 4 dias de progresso registrados.
+                                    </Text>
+                                </View>
+                            ) : weeklyInsight && weeklyInsight.pointsOfImprovement.length > 0 ? (
                                 weeklyInsight.pointsOfImprovement.map((point: string, index: number) => (
                                     <View key={index} className="flex-row items-start mb-4">
                                         <View className="w-5 h-5 bg-orange-600/20 rounded-full items-center justify-center mr-4 mt-0.5">
@@ -280,7 +286,7 @@ export const TestoScreen = () => {
                                 ))
                             ) : (
                                 <View className="items-center justify-center py-6">
-                                    <Text className="text-zinc-500 text-sm">Nenhum relatório gerado ainda.</Text>
+                                    <Text className="text-zinc-500 text-sm">Aguarde o progresso da semana para receber seus pontos de melhoria.</Text>
                                 </View>
                             )}
                         </View>
@@ -288,16 +294,16 @@ export const TestoScreen = () => {
                         {/* Next Goal Button */}
                         <TouchableOpacity
                             className="bg-zinc-900 border border-orange-600/40 rounded-2xl p-4 flex-row items-center justify-between opacity-90"
-                            disabled={!weeklyInsight}
+                            disabled={!weeklyInsight || weeklyInsight.status === 'INSUFFICIENT_DATA' || weeklyInsight.status === 'waiting'}
                         >
                             <View>
                                 <Text className="text-zinc-600 text-[10px] font-medium mb-1">Próximo objetivo</Text>
                                 <Text className="text-white font-bold text-sm">
-                                    {weeklyInsight?.nextObjectiveTitle || 'Analise em progresso...'}
+                                    {weeklyInsight?.status === 'INSUFFICIENT_DATA' ? 'Aguardando consistência...' : (weeklyInsight?.nextObjectiveTitle || 'Analise em progresso...')}
                                 </Text>
                             </View>
                             <View className="bg-orange-600/20 border border-orange-600/50 px-4 py-2 rounded-xl flex-row items-center">
-                                <Text className="text-orange-600 font-bold text-sm mr-2">{weeklyInsight?.nextObjectivePercent || 0}%</Text>
+                                <Text className="text-orange-600 font-bold text-sm mr-2">{weeklyInsight?.status === 'INSUFFICIENT_DATA' ? 0 : (weeklyInsight?.nextObjectivePercent || 0)}%</Text>
                                 <Zap size={14} color="#f42" fill="#f42" />
                             </View>
                         </TouchableOpacity>
