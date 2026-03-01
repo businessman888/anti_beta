@@ -2,7 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { MissionsScreen } from '../screens/missions/MissionsScreen';
-import { AIContentScreen } from '../screens/content/AIContentScreen';
+import { AgentScreen } from '../screens/agent/AgentScreen';
 import { ScannerAlphaScreen } from '../screens/scanner/ScannerAlphaScreen';
 import { TestoScreen } from '../screens/testo/TestoScreen';
 import { MainTabParamList } from '../types/navigation';
@@ -39,9 +39,10 @@ export const MainTabNavigator = () => {
         >
             <Tab.Screen name="Home" component={HomeScreen} />
             <Tab.Screen name="Missions" component={MissionsScreen} />
-            <Tab.Screen name="AIContent" component={AIContentScreen} />
+            <Tab.Screen name="AIContent" component={AgentScreen} />
             <Tab.Screen name="ScannerAlpha" component={ScannerAlphaScreen} />
             <Tab.Screen name="Testo" component={TestoScreen} />
         </Tab.Navigator>
     );
 };
+
