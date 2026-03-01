@@ -167,7 +167,7 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
             // we will use fetch since we might not have apiClient imported in this file yet
             // or we can import apiClient at the top. Let's lazily require it or just import it.
             const { apiClient } = require('../services/api/client');
-            const response = await apiClient.get(`/insights/weekly/${userId}`);
+            const response = await apiClient.get('/insights/weekly');
 
             if (response.data) {
                 set({
