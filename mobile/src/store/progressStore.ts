@@ -174,7 +174,9 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
                     weeklyInsight: {
                         id: response.data.id,
                         status: response.data.status,
-                        pointsOfImprovement: response.data.pointsOfImprovement,
+                        pointsOfImprovement: Array.isArray(response.data.pointsOfImprovement)
+                            ? response.data.pointsOfImprovement
+                            : (response.data.pointsOfImprovement ? [response.data.pointsOfImprovement] : []),
                         nextObjectiveTitle: response.data.nextObjectiveTitle,
                         nextObjectivePercent: response.data.nextObjectivePercent,
                     },

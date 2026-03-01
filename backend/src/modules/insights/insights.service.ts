@@ -68,9 +68,13 @@ export class WeeklyInsightsService {
         // Coleta dias distintos na tabela daily_stats
         const distinctDays = new Set(stats.map(s => s.date.toISOString().split('T')[0]));
         if (distinctDays.size < 3) {
-            throw new BadRequestException(
-                'Dados insuficientes para gerar o relatório semanal. Continue preenchendo o app diariamente (Mínimo de 3 dias necessários).',
-            );
+            return {
+                id: 'waiting_insight',
+                status: 'waiting',
+                pointsOfImprovement: ['Poucos dados coletados. Continue preenchendo o app diariamente (Mínimo 3 dias necessários).'],
+                nextObjectiveTitle: 'Coletando dados Alpha...',
+                nextObjectivePercent: 0,
+            };
         }
 
         // 4. Preparar contexto pro Claude
@@ -110,7 +114,7 @@ Responda APENAS com um objeto JSON válido (sem markdown, sem crases, sem texto 
         let insightResult;
         try {
             const msg = await this.anthropic.messages.create({
-                model: 'claude-haiku-4-5-20251001',
+                model: 'claude-3-5-haiku-20241022',
                 max_tokens: 1024,
                 temperature: 0.7,
                 system: "Você é um assistente estrito que sempre retorna apenas um JSON limpo, sem markdown.",
@@ -124,7 +128,13 @@ Responda APENAS com um objeto JSON válido (sem markdown, sem crases, sem texto 
             insightResult = JSON.parse(cleanedJsonStr);
         } catch (e) {
             console.error('Erro no Claude:', e);
-            throw new BadRequestException('Não foi possível gerar as dicas Alpha neste momento.');
+            return {
+                id: 'waiting_insight',
+                status: 'waiting',
+                pointsOfImprovement: ['Erro no servidor de IA. Aguarde e tente novamente mais tarde.'],
+                nextObjectiveTitle: 'Análise Pausada',
+                nextObjectivePercent: 0,
+            };
         }
 
         // 6. Salvar no banco

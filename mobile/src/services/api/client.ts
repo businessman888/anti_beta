@@ -1,5 +1,4 @@
 import axios, { AxiosError } from 'axios';
-import { useAuthStore } from '../../store/authStore';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -14,6 +13,7 @@ export const apiClient = axios.create({
 // Request interceptor to add the auth token to every request
 apiClient.interceptors.request.use(
     async (config) => {
+        const { useAuthStore } = require('../../store/authStore');
         const session = useAuthStore.getState().session;
         if (session?.access_token) {
             config.headers.Authorization = `Bearer ${session.access_token}`;
