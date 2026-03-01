@@ -81,13 +81,18 @@ export class ConversationalController {
             throw new BadRequestException('Arquivo de áudio é obrigatório. Envie no campo "audio".');
         }
 
+        if (!file.buffer || file.buffer.length === 0) {
+            this.logger.error(`[UPLOAD] Buffer vazio ou corrompido: originalname=${file.originalname}, size=${file.size}, mimetype=${file.mimetype}`);
+            throw new BadRequestException('Arquivo de áudio chegou vazio ou corrompido. Tente gravar novamente.');
+        }
+
         const userId: string = req.user?.id;
         if (!userId) {
             throw new BadRequestException('Usuário não identificado.');
         }
 
         this.logger.log(
-            `[${userId}] Voice interaction recebida: ${file.originalname} (${(file.size / 1024).toFixed(1)}KB, ${file.mimetype})`,
+            `[${userId}] Voice interaction recebida: ${file.originalname} (${(file.size / 1024).toFixed(1)}KB, ${file.mimetype}, buffer=${file.buffer.length} bytes)`,
         );
 
         return this.conversationalService.processVoiceInteraction(

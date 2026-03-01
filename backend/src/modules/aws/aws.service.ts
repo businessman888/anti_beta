@@ -29,6 +29,8 @@ export class AwsService {
 
         this.bucket = this.configService.get<string>('aws.s3Bucket', 'anti-beta-agent-audio');
 
+        this.logger.log(`[AWS] Region: ${this.region}, Bucket: ${this.bucket}`);
+
         this.s3 = new S3Client({ region: this.region, credentials });
         this.polly = new PollyClient({ region: this.region, credentials });
         this.transcribe = new TranscribeClient({ region: this.region, credentials });
@@ -48,11 +50,21 @@ export class AwsService {
                     ContentType: contentType,
                 }),
             );
-            this.logger.log(`Uploaded audio to S3: ${key}`);
+            this.logger.log(`Uploaded audio to S3: ${key} (${(buffer.length / 1024).toFixed(1)}KB)`);
             return key;
-        } catch (error) {
-            this.logger.error(`Falha ao enviar áudio para S3: ${error}`);
-            throw new InternalServerErrorException('Falha ao salvar áudio. Tente novamente.');
+        } catch (error: any) {
+            this.logger.error(`Falha ao enviar áudio para S3:`, {
+                bucket: this.bucket,
+                key,
+                contentType,
+                bufferSize: buffer?.length ?? 0,
+                errorName: error?.name,
+                errorCode: error?.$metadata?.httpStatusCode,
+                errorMessage: error?.message,
+            });
+            console.error('[AwsService.uploadAudio] Raw AWS Error:', error);
+            const awsMsg = error?.message || 'Erro desconhecido';
+            throw new InternalServerErrorException(`Falha ao salvar áudio: ${awsMsg}`);
         }
     }
 
