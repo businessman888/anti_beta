@@ -14,6 +14,7 @@ export type RootStackParamList = {
     Profile: undefined;
     Agenda: undefined;
     DailyQuiz: undefined;
+    AgentAlpha: undefined;
 };
 
 export type MainTabParamList = {
