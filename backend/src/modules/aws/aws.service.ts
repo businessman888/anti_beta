@@ -123,15 +123,13 @@ export class AwsService implements OnModuleInit {
             const s3Uri = `s3://${this.bucket}/${inputKey}`;
 
             // 2. Start Transcription Job
+            this.logger.log(`[${userId}] Starting Transcribe job: ${jobName}, s3Uri: ${s3Uri}, format: ${extension}`);
             await this.transcribe.send(
                 new StartTranscriptionJobCommand({
                     TranscriptionJobName: jobName,
                     LanguageCode: 'pt-BR',
                     MediaFormat: extension as any,
                     Media: { MediaFileUri: s3Uri },
-                    Settings: {
-                        ShowSpeakerLabels: false,
-                    },
                 }),
             );
 
@@ -146,13 +144,20 @@ export class AwsService implements OnModuleInit {
             );
 
             return transcript;
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof InternalServerErrorException) throw error;
-            this.logger.error(`Falha no Transcribe STT: ${error}`);
+            this.logger.error(`[${userId}] Falha no Transcribe STT:`, {
+                jobName,
+                errorName: error?.name,
+                errorCode: error?.$metadata?.httpStatusCode,
+                errorMessage: error?.message,
+            });
+            console.error('[AwsService.transcribeAudio] Raw Error:', error);
             // Attempt cleanup on error
             this.cleanupTranscription(inputKey, jobName).catch(() => { });
+            const awsMsg = error?.message || 'Erro desconhecido no Transcribe';
             throw new InternalServerErrorException(
-                'Falha ao transcrever áudio. Tente novamente.',
+                `Falha ao transcrever áudio: ${awsMsg}`,
             );
         }
     }
