@@ -43,15 +43,45 @@ export const HomeScreen = () => {
     } = usePlanStore();
 
     const { user } = useAuthStore();
-    const { isQuizLocked, quizAvailableIn, checkQuizStatus } = useProgressStore();
+    const { isQuizLocked, quizAvailableIn, checkQuizStatus, todayStats, fetchTodayStats, historyStats, fetchHistory } = useProgressStore();
 
     useFocusEffect(
         React.useCallback(() => {
             if (user) {
                 checkQuizStatus();
+                fetchTodayStats();
+                fetchHistory('weekly');
             }
         }, [user, checkQuizStatus])
     );
+
+    // Calculate weekly testo growth
+    const weeklyGrowth = React.useMemo(() => {
+        if (historyStats.length < 2) return 0;
+        const oldest = historyStats[0]?.testoPoints || 0;
+        const latest = historyStats[historyStats.length - 1]?.testoPoints || 0;
+        return latest - oldest;
+    }, [historyStats]);
+
+    // Get activity points from user_profiles via supabase (fetched in authStore)
+    const [activityPoints, setActivityPoints] = React.useState(0);
+    React.useEffect(() => {
+        const fetchPoints = async () => {
+            if (!user) return;
+            try {
+                const { supabase } = require('../../lib/supabase');
+                const { data } = await supabase
+                    .from('user_profiles')
+                    .select('activityPoints')
+                    .eq('userId', user.id)
+                    .maybeSingle();
+                if (data) setActivityPoints(data.activityPoints || 0);
+            } catch (e) {
+                console.error('Error fetching activity points:', e);
+            }
+        };
+        fetchPoints();
+    }, [user, todayStats]);
 
     // In a real scenario, we would calculate current day/week/month based on plan start date
     // For now, we use the first day of the first week
@@ -99,8 +129,9 @@ export const HomeScreen = () => {
                 <HomeHeader user={homeMockData.user} />
 
                 <TestosteroneCard
-                    level={homeMockData.user.testosterone}
-                    growth={homeMockData.user.testoGrowth}
+                    activityPoints={activityPoints}
+                    testoPercent={todayStats?.testoPoints || 0}
+                    growth={weeklyGrowth}
                 />
 
                 <DailyGoalsCard

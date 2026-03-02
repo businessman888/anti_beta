@@ -377,9 +377,17 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
                 .from('daily_stats')
                 .update(snakeCaseUpdates)
                 .eq('id', todayStats.id);
+
+            // Sync testoLevel to user_profiles for ranking
+            const userId = useAuthStore.getState().session?.user?.id;
+            if (userId) {
+                await supabase
+                    .from('user_profiles')
+                    .update({ testoLevel: newPoints, updatedAt: new Date().toISOString() })
+                    .eq('userId', userId);
+            }
         } catch (error) {
             console.error('Error updating daily stats:', error);
-            // Revert on error could be implemented here
         }
     },
 

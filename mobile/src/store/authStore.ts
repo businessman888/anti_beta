@@ -20,6 +20,7 @@ interface AuthState {
     signOut: () => Promise<void>;
     initialize: () => Promise<void>;
     incrementActivityPoints: (points: number) => Promise<void>;
+    ensureUserProfile: (userId: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -63,19 +64,83 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const { user } = get();
         if (!user) return;
         try {
+            // Atomic increment: fetch current, add, update
             const { data } = await supabase
                 .from('user_profiles')
                 .select('activityPoints')
                 .eq('userId', user.id)
                 .maybeSingle();
 
-            const currentPoints = data?.activityPoints || 0;
-            await supabase
-                .from('user_profiles')
-                .update({ activityPoints: currentPoints + points })
-                .eq('userId', user.id);
+            if (!data) {
+                // Ensure profile exists first
+                await get().ensureUserProfile(user.id);
+                // Then try again
+                await supabase
+                    .from('user_profiles')
+                    .update({ activityPoints: points })
+                    .eq('userId', user.id);
+            } else {
+                const currentPoints = data?.activityPoints || 0;
+                await supabase
+                    .from('user_profiles')
+                    .update({ activityPoints: currentPoints + points })
+                    .eq('userId', user.id);
+            }
         } catch (error) {
             console.error('Error incrementing activity points:', error);
+        }
+    },
+
+    ensureUserProfile: async (userId: string) => {
+        try {
+            // Check if user_profiles record already exists
+            const { data: existing } = await supabase
+                .from('user_profiles')
+                .select('id')
+                .eq('userId', userId)
+                .maybeSingle();
+
+            if (existing) return; // Already exists
+
+            // Get the user's creation date from profiles table to determine cohort
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('created_at')
+                .eq('id', userId)
+                .maybeSingle();
+
+            const createdAt = profileData?.created_at ? new Date(profileData.created_at) : new Date();
+            const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            const cohort = `${monthNames[createdAt.getMonth()]} ${createdAt.getFullYear()}`;
+
+            // Get today's testo_points from daily_stats
+            const today = new Date().toISOString().split('T')[0];
+            const { data: statsData } = await supabase
+                .from('daily_stats')
+                .select('testo_points')
+                .eq('user_id', userId)
+                .eq('date', today)
+                .maybeSingle();
+
+            const testoLevel = statsData?.testo_points || 0;
+
+            // Create the user_profiles record
+            await supabase
+                .from('user_profiles')
+                .insert({
+                    id: userId, // Use same ID
+                    userId: userId,
+                    cohort,
+                    activityPoints: 0,
+                    testoLevel,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                });
+
+            console.log('[AuthStore] Created user_profiles record for:', userId, 'cohort:', cohort);
+        } catch (error) {
+            console.error('[AuthStore] Error ensuring user profile:', error);
         }
     },
 
@@ -93,6 +158,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             if (profile) set({ profile });
             set({ onboardingCompleted: hasPlan });
 
+            // Ensure user_profiles record exists for ranking
+            await get().ensureUserProfile(userId);
+
             console.log("[AuthStore] User data loaded for:", userId);
             console.log("[AuthStore] Has Plan:", hasPlan);
 
@@ -106,7 +174,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
         } catch (error) {
             console.error("[AuthStore] Error loading user data:", error);
-            // Default to not onboarded on failure to be safe, or should we handle this differently?
             set({ onboardingCompleted: false });
         } finally {
             set({ isLoading: false });
