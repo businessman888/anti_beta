@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import {
     View,
     Text,
+    Image,
     TouchableOpacity,
     Alert,
     Animated,
@@ -275,8 +276,8 @@ export const AgentScreen = () => {
                             <View
                                 key={idx}
                                 className={`mb-3 p-4 rounded-2xl ${msg.role === 'user'
-                                        ? 'bg-zinc-800/60 border border-zinc-700/50'
-                                        : 'bg-zinc-800/80 border border-orange-500/30'
+                                    ? 'bg-zinc-800/60 border border-zinc-700/50'
+                                    : 'bg-zinc-800/80 border border-orange-500/30'
                                     }`}
                             >
                                 <Text className="text-zinc-300 text-sm leading-5">
@@ -322,13 +323,11 @@ export const AgentScreen = () => {
                             elevation: 10,
                         }}
                     >
-                        <View className="w-44 h-44 rounded-full bg-gradient-to-b items-center justify-center overflow-hidden border-2 border-orange-500/50">
-                            {/* Gradient background */}
-                            <View className="absolute inset-0 bg-orange-500 rounded-full" />
-                            <View className="absolute inset-0 bg-gradient-to-t from-red-600 to-orange-400 rounded-full opacity-80" />
-                            {/* Logo placeholder */}
-                            <Text className="text-white text-5xl font-black z-10">α</Text>
-                        </View>
+                        <Image
+                            source={require('../../../icons/Group 14.png')}
+                            style={{ width: 176, height: 176, borderRadius: 88 }}
+                            resizeMode="contain"
+                        />
                     </Animated.View>
                 </View>
 
@@ -401,8 +400,8 @@ export const AgentScreen = () => {
                 >
                     <View
                         className={`w-16 h-16 rounded-full items-center justify-center ${state === 'RECORDING'
-                                ? 'border-2 border-orange-500 bg-zinc-900'
-                                : 'bg-zinc-800 border border-zinc-700'
+                            ? 'border-2 border-orange-500 bg-zinc-900'
+                            : 'bg-zinc-800 border border-zinc-700'
                             }`}
                     >
                         {/* Waveform icon */}
