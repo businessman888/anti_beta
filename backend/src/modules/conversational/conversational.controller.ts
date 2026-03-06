@@ -17,7 +17,11 @@ import {
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ConversationalService, ChatInteractionResponse } from './conversational.service';
 
+import { IsString, IsNotEmpty } from 'class-validator';
+
 export class ChatRequestDto {
+    @IsString()
+    @IsNotEmpty()
     text: string;
 }
 

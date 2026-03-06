@@ -59,10 +59,14 @@ export const AgentScreen = () => {
             setAgentResponse(result.agentResponseText);
         } catch (err: any) {
             console.error('Erro na interação:', err);
-            const message = err?.response?.data?.message || 'Falha na conexão com o mentor. Tente novamente.';
+            // Extracts the message from backend (could be array if validation error)
+            let message = 'Falha na conexão com o mentor. Tente novamente.';
+            if (err?.response?.data?.message) {
+                const responseMsg = err.response.data.message;
+                message = Array.isArray(responseMsg) ? responseMsg.join(', ') : responseMsg;
+            }
             setError(message);
             Alert.alert('Erro', message);
-            setState('IDLE');
         }
     };
 
@@ -70,8 +74,8 @@ export const AgentScreen = () => {
         const isUser = item.role === 'user';
         return (
             <View className={`mb-3 p-4 rounded-2xl max-w-[85%] ${isUser
-                    ? 'bg-zinc-800/60 border border-zinc-700/50 self-end rounded-br-sm'
-                    : 'bg-zinc-800/80 border border-orange-500/30 self-start rounded-bl-sm'
+                ? 'bg-zinc-800/60 border border-zinc-700/50 self-end rounded-br-sm'
+                : 'bg-zinc-800/80 border border-orange-500/30 self-start rounded-bl-sm'
                 }`}>
                 {!isUser && (
                     <Text className="text-orange-500 text-xs font-bold mb-1">Coach Alpha</Text>
@@ -172,8 +176,8 @@ export const AgentScreen = () => {
                         onPress={handleSend}
                         disabled={state !== 'IDLE' || !inputText.trim()}
                         className={`w-[50px] h-[50px] rounded-full items-center justify-center ${state === 'IDLE' && inputText.trim()
-                                ? 'bg-orange-500'
-                                : 'bg-zinc-800'
+                            ? 'bg-orange-500'
+                            : 'bg-zinc-800'
                             }`}
                         activeOpacity={0.7}
                     >
