@@ -1,8 +1,11 @@
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AwsService } from '../aws/aws.service';
 import { AnthropicService, AgentUserContext } from './anthropic.service';
-import { VoiceInteractionResponseDto } from './dto/voice-interaction-response.dto';
+
+export interface ChatInteractionResponse {
+    transcribedUserText: string;
+    agentResponseText: string;
+}
 
 @Injectable()
 export class ConversationalService {
@@ -10,55 +13,34 @@ export class ConversationalService {
 
     constructor(
         private readonly prisma: PrismaService,
-        private readonly aws: AwsService,
         private readonly anthropic: AnthropicService,
     ) { }
 
     /**
-     * Full voice interaction pipeline:
-     * 1. STT (Amazon Transcribe: S3 upload → TranscriptionJob → Poll → Fetch)
-     * 2. Fetch user context from Supabase (Prisma)
-     * 3. LLM (Claude 3.5 Haiku with Prompt Caching)
-     * 4. TTS (Polly Neural, voice Thiago, SSML)
-     * 5. Upload response to S3 + Presigned URL
+     * Process text-based chat interactions:
+     * 1. Fetch user context from Supabase (Prisma)
+     * 2. LLM (Claude Haiku 4.5 with Prompt Caching via Anthropic)
      */
-    async processVoiceInteraction(
+    async processChatInteraction(
         userId: string,
-        audioBuffer: Buffer,
-        mimetype: string,
-    ): Promise<VoiceInteractionResponseDto> {
-        // ========== 1. STT: Amazon Transcribe ==========
-        this.logger.log(`[${userId}] Iniciando STT (Transcribe)...`);
-        const transcribedText = await this.aws.transcribeAudio(audioBuffer, mimetype, userId);
-        this.logger.log(`[${userId}] STT concluído: "${transcribedText.substring(0, 50)}..."`);
+        userText: string,
+    ): Promise<ChatInteractionResponse> {
+        this.logger.log(`[${userId}] Processando chat: "${userText}"`);
 
-        // ========== 2. Buscar contexto do usuário no Supabase ==========
+        // ========== 1. Buscar contexto do usuário no Supabase ==========
         const userContext = await this.fetchUserContext(userId);
 
-        // ========== 3. LLM: Claude 3.5 Haiku (Prompt Caching) ==========
+        // ========== 2. LLM: Claude Haiku 4.5 (Prompt Caching) ==========
         this.logger.log(`[${userId}] Enviando para Claude...`);
         const agentResponse = await this.anthropic.generateMentorResponse(
-            transcribedText,
+            userText,
             userContext,
         );
         this.logger.log(`[${userId}] Claude respondeu: "${agentResponse.substring(0, 50)}..."`);
 
-        // ========== 4. TTS: Polly Neural (Thiago + SSML) ==========
-        this.logger.log(`[${userId}] Gerando TTS...`);
-        const audioResponseBuffer = await this.aws.synthesizeSpeech(agentResponse);
-
-        // ========== 5. Upload do áudio de resposta ao S3 ==========
-        const audioId = crypto.randomUUID();
-        const s3Key = `outputs/${userId}/${audioId}.mp3`;
-        await this.aws.uploadAudio(audioResponseBuffer, s3Key, 'audio/mpeg');
-
-        // ========== 6. Gerar Presigned URL ==========
-        const presignedUrl = await this.aws.generatePresignedUrl(s3Key);
-
         return {
-            transcribedUserText: transcribedText,
+            transcribedUserText: userText,
             agentResponseText: agentResponse,
-            agentAudioUrl: presignedUrl,
         };
     }
 
@@ -68,11 +50,12 @@ export class ConversationalService {
      */
     private async fetchUserContext(userId: string): Promise<AgentUserContext> {
         try {
-            // Fetch user profile (testoLevel, name)
+            // Fetch user profile (testoLevel, name, activityPoints)
             const profile = await this.prisma.userProfile.findUnique({
                 where: { userId },
                 select: {
                     testoLevel: true,
+                    activityPoints: true,
                     user: { select: { name: true } },
                 },
             });
@@ -105,11 +88,13 @@ export class ConversationalService {
 
             // Determine ranking based on testoLevel
             const testoLevel = profile?.testoLevel ?? 0;
+            const activityPoints = profile?.activityPoints ?? 0;
             const ranking = this.calculateRanking(testoLevel);
 
             return {
                 userName: profile?.user?.name ?? null,
                 testoLevel,
+                activityPoints,
                 weeklyCompliance: distinctDays.size,
                 totalWeekDays,
                 nofapStreak: latestNofapStreak,
@@ -121,6 +106,7 @@ export class ConversationalService {
             return {
                 userName: null,
                 testoLevel: 0,
+                activityPoints: 0,
                 weeklyCompliance: 0,
                 totalWeekDays: 7,
                 nofapStreak: 0,
@@ -137,3 +123,4 @@ export class ConversationalService {
         return 'Beta';
     }
 }
+

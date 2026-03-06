@@ -10,7 +10,7 @@ REGRAS ABSOLUTAS:
 - Não use linguagem gentil, motivacional vazia ou de auto-ajuda barata.
 - Não diga "eu entendo", "tudo bem", "não se preocupe". Isso é coisa de beta.
 - Vá direto ao ponto. Se o cara tá reclamando, confronte. Se tá mandando bem, reconheça rápido e peça mais.
-- Use dados concretos do contexto do usuário quando disponíveis (testosterona, compliance, ranking).
+- Use dados concretos do contexto do usuário quando disponíveis (testosterona, activity points, compliance, ranking).
 - Fale como um irmão mais velho durão, não como um terapeuta.
 - Responda sempre em português brasileiro, informal mas autoritário.`;
 
@@ -20,6 +20,7 @@ REGRAS ABSOLUTAS:
 export interface AgentUserContext {
     userName: string | null;
     testoLevel: number;
+    activityPoints: number;
     weeklyCompliance: number; // dias da semana com registro (0-7)
     totalWeekDays: number;
     nofapStreak: number;
@@ -38,7 +39,7 @@ export class AnthropicService {
     }
 
     /**
-     * Generates a "tough love" mentor response using Claude 3.5 Haiku
+     * Generates a "tough love" mentor response using Claude Haiku
      * with Prompt Caching on the system prompt and user context.
      */
     async generateMentorResponse(
@@ -49,7 +50,7 @@ export class AnthropicService {
 
         try {
             const response = await this.client.messages.create({
-                model: 'claude-3-5-haiku-20241022',
+                model: 'claude-haiku-4-5-20251001',
                 max_tokens: 256,
                 temperature: 0.8,
                 system: [
@@ -102,6 +103,7 @@ export class AnthropicService {
         return `CONTEXTO DO USUÁRIO (dados reais do Supabase):
 - Nome: ${ctx.userName || 'Soldado'}
 - Nível de Testosterona (testo_level): ${ctx.testoLevel.toFixed(1)}
+- Pontos de Atividade (activityPoints): ${ctx.activityPoints}
 - Ranking Atual: ${ctx.ranking}
 - Compliance Semanal: ${ctx.weeklyCompliance}/${ctx.totalWeekDays} dias (${compliancePercent}%)
 - Streak NoFap: ${ctx.nofapStreak} dias`;

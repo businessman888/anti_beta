@@ -1,37 +1,24 @@
 import { apiClient } from './api/client';
 
-export interface VoiceInteractionResponse {
+export interface ChatInteractionResponse {
     transcribedUserText: string;
     agentResponseText: string;
-    agentAudioUrl: string;
 }
 
 export const agentService = {
     /**
-     * Sends audio to the backend for full voice interaction pipeline.
-     * Uses multipart/form-data with the audio file.
+     * Sends text to the backend for chat interaction.
      */
-    async sendVoiceInteraction(audioUri: string): Promise<VoiceInteractionResponse> {
-        const formData = new FormData();
-
-        // React Native FormData expects an object with uri, name, type
-        formData.append('audio', {
-            uri: audioUri,
-            name: 'voice_recording.m4a',
-            type: 'audio/m4a',
-        } as any);
-
-        const response = await apiClient.post<VoiceInteractionResponse>(
-            '/conversational/voice-interaction',
-            formData,
+    async sendChatInteraction(text: string): Promise<ChatInteractionResponse> {
+        const response = await apiClient.post<ChatInteractionResponse>(
+            '/conversational/chat',
+            { text },
             {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-                timeout: 60000, // 60s timeout para o pipeline completo
+                timeout: 30000,
             },
         );
 
         return response.data;
     },
 };
+

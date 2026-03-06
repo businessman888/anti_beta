@@ -2,25 +2,24 @@ import {
     Controller,
     Post,
     UseGuards,
-    UseInterceptors,
-    UploadedFile,
+    Body,
     Req,
     BadRequestException,
     Logger,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import {
     ApiTags,
     ApiOperation,
     ApiCreatedResponse,
     ApiBearerAuth,
-    ApiConsumes,
     ApiBadRequestResponse,
-    ApiServiceUnavailableResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
-import { ConversationalService } from './conversational.service';
-import { VoiceInteractionResponseDto } from './dto/voice-interaction-response.dto';
+import { ConversationalService, ChatInteractionResponse } from './conversational.service';
+
+export class ChatRequestDto {
+    text: string;
+}
 
 @ApiTags('conversational')
 @ApiBearerAuth()
@@ -31,59 +30,21 @@ export class ConversationalController {
 
     constructor(private readonly conversationalService: ConversationalService) { }
 
-    @Post('voice-interaction')
+    @Post('chat')
     @ApiOperation({
-        summary: 'Interação de voz completa com o Agente Alpha',
-        description:
-            'Recebe áudio do usuário, transcreve (Deepgram), processa com Claude (Tough Love), gera áudio de resposta (Polly Neural) e retorna tudo.',
+        summary: 'Interação de texto com o Agente Alpha',
+        description: 'Recebe texto do usuário, processa com Claude (Tough Love) e retorna a resposta textual diretamente.',
     })
-    @ApiConsumes('multipart/form-data')
     @ApiCreatedResponse({
         description: 'Interação processada com sucesso',
-        type: VoiceInteractionResponseDto,
     })
-    @ApiBadRequestResponse({ description: 'Arquivo de áudio não fornecido ou inválido' })
-    @ApiServiceUnavailableResponse({ description: 'Serviço AWS ou LLM temporariamente indisponível' })
-    @UseInterceptors(
-        FileInterceptor('audio', {
-            limits: {
-                fileSize: 10 * 1024 * 1024, // 10MB max
-            },
-            fileFilter: (_req, file, callback) => {
-                const allowedMimes = [
-                    'audio/mp4',
-                    'audio/m4a',
-                    'audio/x-m4a',
-                    'audio/mpeg',
-                    'audio/wav',
-                    'audio/webm',
-                    'audio/ogg',
-                    'audio/aac',
-                ];
-                if (allowedMimes.includes(file.mimetype)) {
-                    callback(null, true);
-                } else {
-                    callback(
-                        new BadRequestException(
-                            `Formato de áudio não suportado: ${file.mimetype}. Use mp4, m4a, mp3, wav, webm, ogg ou aac.`,
-                        ),
-                        false,
-                    );
-                }
-            },
-        }),
-    )
-    async handleVoiceInteraction(
-        @UploadedFile() file: Express.Multer.File,
+    @ApiBadRequestResponse({ description: 'Texto não fornecido ou inválido' })
+    async handleChatInteraction(
+        @Body() body: ChatRequestDto,
         @Req() req: any,
-    ): Promise<VoiceInteractionResponseDto> {
-        if (!file) {
-            throw new BadRequestException('Arquivo de áudio é obrigatório. Envie no campo "audio".');
-        }
-
-        if (!file.buffer || file.buffer.length === 0) {
-            this.logger.error(`[UPLOAD] Buffer vazio ou corrompido: originalname=${file.originalname}, size=${file.size}, mimetype=${file.mimetype}`);
-            throw new BadRequestException('Arquivo de áudio chegou vazio ou corrompido. Tente gravar novamente.');
+    ): Promise<ChatInteractionResponse> {
+        if (!body.text || body.text.trim().length === 0) {
+            throw new BadRequestException('O texto da mensagem é obrigatório.');
         }
 
         const userId: string = req.user?.id;
@@ -91,14 +52,12 @@ export class ConversationalController {
             throw new BadRequestException('Usuário não identificado.');
         }
 
-        this.logger.log(
-            `[${userId}] Voice interaction recebida: ${file.originalname} (${(file.size / 1024).toFixed(1)}KB, ${file.mimetype}, buffer=${file.buffer.length} bytes)`,
-        );
+        this.logger.log(`[${userId}] Chat interaction recebida: "${body.text.substring(0, 50)}..."`);
 
-        return this.conversationalService.processVoiceInteraction(
+        return this.conversationalService.processChatInteraction(
             userId,
-            file.buffer,
-            file.mimetype,
+            body.text,
         );
     }
 }
+

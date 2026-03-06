@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 
-export type AgentState = 'IDLE' | 'RECORDING' | 'SENDING' | 'PROCESSING' | 'SPEAKING';
+export type AgentState = 'IDLE' | 'SENDING' | 'TYPING';
 
-interface ConversationMessage {
+export interface ConversationMessage {
+    id: string;
     role: 'user' | 'agent';
     text: string;
     timestamp: string;
@@ -12,15 +13,12 @@ interface AgentStoreState {
     state: AgentState;
     userText: string | null;
     agentText: string | null;
-    agentAudioUrl: string | null;
-    audioDuration: number;
     error: string | null;
     messages: ConversationMessage[];
 
     setState: (newState: AgentState) => void;
     setUserText: (text: string | null) => void;
-    setAgentResponse: (text: string, audioUrl: string) => void;
-    setAudioDuration: (duration: number) => void;
+    setAgentResponse: (text: string) => void;
     setError: (error: string | null) => void;
     addMessage: (role: 'user' | 'agent', text: string) => void;
     reset: () => void;
@@ -30,8 +28,6 @@ export const useAgentStore = create<AgentStoreState>((set) => ({
     state: 'IDLE',
     userText: null,
     agentText: null,
-    agentAudioUrl: null,
-    audioDuration: 0,
     error: null,
     messages: [],
 
@@ -39,14 +35,11 @@ export const useAgentStore = create<AgentStoreState>((set) => ({
 
     setUserText: (text) => set({ userText: text }),
 
-    setAgentResponse: (text, audioUrl) =>
+    setAgentResponse: (text) =>
         set({
             agentText: text,
-            agentAudioUrl: audioUrl,
-            state: 'SPEAKING',
+            state: 'IDLE',
         }),
-
-    setAudioDuration: (duration) => set({ audioDuration: duration }),
 
     setError: (error) => set({ error, state: 'IDLE' }),
 
@@ -55,6 +48,7 @@ export const useAgentStore = create<AgentStoreState>((set) => ({
             messages: [
                 ...prev.messages,
                 {
+                    id: Math.random().toString(36).substring(2, 9),
                     role,
                     text,
                     timestamp: new Date().toLocaleTimeString('pt-BR', {
@@ -70,8 +64,6 @@ export const useAgentStore = create<AgentStoreState>((set) => ({
             state: 'IDLE',
             userText: null,
             agentText: null,
-            agentAudioUrl: null,
-            audioDuration: 0,
             error: null,
         }),
 }));
