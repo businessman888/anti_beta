@@ -37,6 +37,7 @@ export const profileService = {
             // 1. Fetch the image and convert to blob
             const response = await fetch(uri);
             const blob = await response.blob();
+            console.log('Tipo do objeto:', typeof blob, blob instanceof Blob);
 
             // 2. Prepare file path: avatars/{userId}/avatar_{timestamp}.{ext}
             const fileExt = uri.split('.').pop() || 'jpg';
@@ -49,6 +50,7 @@ export const profileService = {
                 .upload(filePath, blob, {
                     contentType: 'image/jpeg', // Or dynamically set
                     upsert: true,
+                    cacheControl: '3600'
                 });
 
             if (error) {

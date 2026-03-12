@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -25,11 +25,23 @@ import { homeMockData } from '../../mocks/homeMock';
 import { useAuthStore } from '../../store/authStore';
 import { profileService } from '../../services/profileService';
 import { Avatar } from '../../components/ui/Avatar';
+import { useProgressStore } from '../../store/progressStore';
+import { useRankingStore } from '../../store/rankingStore';
+import { useAchievementsStore } from '../../store/achievementsStore';
 
 export const ProfileScreen = () => {
     const navigation = useNavigation();
     const { signOut, user, profile, refreshProfile, uploadAvatar } = useAuthStore();
+    const { todayStats, fetchTodayStats } = useProgressStore();
+    const { currentUser, fetchCohortRanking } = useRankingStore();
+    const { stats: badgesStats, fetchAchievements } = useAchievementsStore();
     const [isUploading, setIsUploading] = useState(false);
+
+    useEffect(() => {
+        fetchTodayStats();
+        fetchCohortRanking();
+        fetchAchievements();
+    }, []);
 
     const handlePickImage = async () => {
         if (!user) return;
@@ -68,12 +80,19 @@ export const ProfileScreen = () => {
         }
     };
 
+    // Compute real values for stats
+    const streak = todayStats?.nofapStreak ?? currentUser?.streak ?? 0;
+    const rank = currentUser?.rank ? `#${currentUser.rank}` : '-';
+    const totalBadges = badgesStats.total > 0 ? badgesStats.total : 36;
+    const badges = `${badgesStats.unlocked}/${totalBadges}`;
+    const testo = todayStats?.testoPoints ?? currentUser?.testoLevel ?? 0;
+
     // Stats data
     const stats = [
-        { label: 'Dias seguidos', value: '14d', icon: <Flame size={20} color="#ff4422" fill="#ff4422" /> },
-        { label: 'Ranking', value: '#34', icon: <Trophy size={20} color="#ff4422" /> },
-        { label: 'Badges', value: '8/36', icon: <Star size={20} color="#ff4422" fill="#ff4422" /> },
-        { label: 'Testo', value: '67%', icon: <Zap size={20} color="#ff4422" fill="#ff4422" /> },
+        { label: 'Dias seguidos', value: `${streak}d`, icon: <Flame size={20} color="#ff4422" fill="#ff4422" /> },
+        { label: 'Ranking', value: rank, icon: <Trophy size={20} color="#ff4422" /> },
+        { label: 'Badges', value: badges, icon: <Star size={20} color="#ff4422" fill="#ff4422" /> },
+        { label: 'Testo', value: `${testo}%`, icon: <Zap size={20} color="#ff4422" fill="#ff4422" /> },
     ];
 
     // Preferences items
