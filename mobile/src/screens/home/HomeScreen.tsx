@@ -120,7 +120,7 @@ export const HomeScreen = () => {
     const alphaTip = getAlphaTip(currentWeek, currentMonth);
 
     return (
-        <SafeAreaView className="flex-1 bg-zinc-950">
+        <SafeAreaView className="flex-1 bg-zinc-950" edges={['top']}>
             <ScrollView
                 className="flex-1 px-4 pt-4"
                 showsVerticalScrollIndicator={false}

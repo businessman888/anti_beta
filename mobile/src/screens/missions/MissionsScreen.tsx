@@ -8,6 +8,7 @@ import { RankingPodium } from './components/RankingPodium';
 import { RankingListItem } from './components/RankingListItem';
 import { UserPositionCard } from './components/UserPositionCard';
 import { AchievementsCard } from './components/AchievementsCard';
+import { useAchievementsStore } from '../../store/achievementsStore';
 
 export const MissionsScreen = () => {
     const navigation = useNavigation();
@@ -24,6 +25,8 @@ export const MissionsScreen = () => {
         fetchGlobalRanking,
     } = useRankingStore();
 
+    const { stats, fetchAchievements } = useAchievementsStore();
+
     useFocusEffect(
         useCallback(() => {
             if (activeTab === 'cohort') {
@@ -31,6 +34,7 @@ export const MissionsScreen = () => {
             } else {
                 fetchGlobalRanking();
             }
+            fetchAchievements();
         }, [activeTab])
     );
 
@@ -115,8 +119,8 @@ export const MissionsScreen = () => {
                             )}
 
                             <AchievementsCard
-                                unlocked={0}
-                                total={36}
+                                unlocked={stats.unlocked}
+                                total={stats.total}
                             />
                         </>
                     ) : (

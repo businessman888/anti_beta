@@ -1,13 +1,53 @@
-import React from 'react';
-import { View, Text, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
-import { ArrowLeft, Dumbbell, Flame, Calendar, Lock } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useMemo } from 'react';
+import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ArrowLeft, Lock } from 'lucide-react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useAchievementsStore, Achievement } from '../../store/achievementsStore';
+import { getAchievementIcon } from '../../constants/achievements';
 
 export const AchievementsScreen = () => {
     const navigation = useNavigation();
-    const unlocked = 8;
-    const total = 36;
-    const percentage = Math.round((unlocked / total) * 100);
+    
+    const { 
+        allAchievements, 
+        unlockedAchievementIds, 
+        stats, 
+        isLoading, 
+        fetchAchievements 
+    } = useAchievementsStore();
+
+    // Use focus effect so if they unlock one and come back, it updates
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchAchievements();
+        }, [])
+    );
+
+    // Group achievements by category
+    const groupedAchievements = useMemo(() => {
+        const groups: Record<string, Achievement[]> = {
+            'FORÇA E TREINO': [],
+            'DISCIPLINA DE ELITE': [],
+            'DOMÍNIO DA COMUNIDADE': []
+        };
+        
+        allAchievements.forEach(ach => {
+            // Normalize categories to match the aggressive titling
+            let cat = ach.categoria.toUpperCase();
+            if (cat.includes('TREINO')) cat = 'FORÇA E TREINO';
+            else if (cat.includes('DISCIPLINA')) cat = 'DISCIPLINA DE ELITE';
+            else if (cat.includes('COMUNIDADE') || cat.includes('SOCIAL')) cat = 'DOMÍNIO DA COMUNIDADE';
+            
+            if (groups[cat]) {
+                groups[cat].push(ach);
+            } else {
+                // Fallback for unknown categories
+                groups[cat] = [ach];
+            }
+        });
+        
+        return groups;
+    }, [allAchievements]);
 
     return (
         <SafeAreaView className="flex-1 bg-zinc-950">
@@ -19,93 +59,108 @@ export const AchievementsScreen = () => {
                 <View className="w-10" />
             </View>
 
-            <ScrollView
-                className="flex-1 px-6"
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 40 }}
-            >
-                <View className="py-6">
-                    <View className="flex-row justify-between items-end mb-4">
-                        <Text className="text-zinc-600 text-sm font-medium">{unlocked} de {total} badges desbloqueados</Text>
-                        <Text className="text-orange-600 text-xl font-bold">{percentage}%</Text>
-                    </View>
-                    <View className="h-2.5 bg-zinc-900 rounded-full overflow-hidden">
-                        <View
-                            className="h-full bg-orange-600 rounded-full"
-                            style={{ width: `${percentage}%` }}
-                        />
-                    </View>
+            {isLoading && allAchievements.length === 0 ? (
+                <View className="flex-1 justify-center items-center">
+                    <ActivityIndicator size="large" color="#ea580c" />
+                    <Text className="text-zinc-500 mt-4 text-sm">Carregando conquistas...</Text>
                 </View>
+            ) : (
+                <ScrollView
+                    className="flex-1 px-6"
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ paddingBottom: 40 }}
+                >
+                    <View className="py-6">
+                        <View className="flex-row justify-between items-end mb-4">
+                            <Text className="text-zinc-600 text-sm font-medium">
+                                {stats.unlocked} de {stats.total} badges desbloqueados
+                            </Text>
+                            <Text className="text-orange-600 text-xl font-bold">{stats.percentage}%</Text>
+                        </View>
+                        <View className="h-2.5 bg-zinc-900 rounded-full overflow-hidden">
+                            <View
+                                className="h-full bg-orange-600 rounded-full"
+                                style={{ width: `${stats.percentage}%` }}
+                            />
+                        </View>
+                    </View>
 
-                <View className="mt-6">
-                    <CategorySection title="Treino">
-                        <View className="flex-row gap-4 mb-4">
-                            <AchievementCard icon={<Dumbbell size={32} color="#f97316" />} title="Alpha I" subtitle="iniciante" unlocked />
-                            <AchievementCard icon={<Flame size={32} color="#f97316" />} title="10 Dias" subtitle="Sequência" unlocked />
-                        </View>
-                        <View className="flex-row gap-4">
-                            <AchievementCard
-                                title="Resistência"
-                                subtitle="Bloqueado"
-                            />
-                            <AchievementCard
-                                title="Peso Pesado"
-                                subtitle="Bloqueado"
-                            />
-                        </View>
-                    </CategorySection>
-
-                    <CategorySection title="Disciplina">
-                        <View className="flex-row gap-4 mb-4">
-                            <AchievementCard
-                                icon={<Calendar size={32} color="#f97316" />}
-                                title="Consistente"
-                                subtitle="30 Dias"
-                                unlocked
-                                fullWidth
-                            />
-                        </View>
-                        <View className="flex-row gap-4">
-                            <AchievementCard
-                                title="Nutrição"
-                                subtitle="Bloqueado"
-                            />
-                            <AchievementCard
-                                title="Sono Zen"
-                                subtitle="Bloqueado"
-                            />
-                        </View>
-                    </CategorySection>
-
-                    <CategorySection title="Social">
-                        <AchievementCard
-                            title="Comunidade"
-                            subtitle="Bloqueado"
-                            fullWidth
-                        />
-                    </CategorySection>
-                </View>
-            </ScrollView>
+                    <View className="mt-6">
+                        {Object.entries(groupedAchievements).map(([category, achievements]) => {
+                            if (achievements.length === 0) return null;
+                            
+                            return (
+                                <CategorySection key={category} title={category}>
+                                    <View className="flex-row flex-wrap" style={{ marginHorizontal: -6, gap: 12 }}>
+                                        {achievements.map((ach) => (
+                                            <AchievementCard
+                                                key={ach.id}
+                                                title={ach.nome}
+                                                subtitle={ach.descricao} // Using description or perhaps another field in the future
+                                                icon_key={ach.icon_key}
+                                                unlocked={unlockedAchievementIds.includes(ach.id)}
+                                            />
+                                        ))}
+                                    </View>
+                                </CategorySection>
+                            );
+                        })}
+                        
+                        {allAchievements.length === 0 && !isLoading && (
+                            <View className="items-center justify-center py-10">
+                                <Text className="text-zinc-500">Nenhuma conquista cadastrada no sistema.</Text>
+                            </View>
+                        )}
+                    </View>
+                </ScrollView>
+            )}
         </SafeAreaView>
     );
 };
 
 const CategorySection = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <View className="mb-10"><Text className="text-zinc-500 font-bold text-lg mb-6">{title}</Text>{children}</View>
+    <View className="mb-10">
+        <Text className="text-white font-black text-lg mb-6 tracking-widest">{title}</Text>
+        {children}
+    </View>
 );
 
 const AchievementCard = ({
-    icon,
+    icon_key,
     title,
     subtitle,
     unlocked = false,
-    fullWidth = false
 }: {
-    icon?: React.ReactNode;
+    icon_key: string;
     title: string;
     subtitle: string;
     unlocked?: boolean;
-    fullWidth?: boolean;
 }) => (
-    <View className={`bg-zinc-900/50 border border-zinc-900 rounded-[32px] p-8 items-center justify-center ${fullWidth ? 'w-full' : 'flex-1'}`} style={{ minHeight: 180 }}><View className="mb-6">{unlocked ? icon : <Lock size={32} color="#3f3f46" />}</View><Text className={`font-bold text-lg text-center mb-1 ${unlocked ? 'text-white' : 'text-zinc-600'}`}>{title}</Text><Text className={`text-sm font-medium text-center ${unlocked ? 'text-zinc-500' : 'text-zinc-800'}`}>{subtitle}</Text></View>
+    <View style={{ width: '31%', marginBottom: 16 }}>
+        <View className={`bg-zinc-900 border border-zinc-800 rounded-3xl p-3 items-center justify-start flex-1 ${!unlocked ? 'opacity-30' : ''}`} style={{ minHeight: 125 }}>
+            {!unlocked && (
+                <View className="absolute top-2 right-2 opacity-80">
+                    <Lock size={12} color="#a1a1aa" />
+                </View>
+            )}
+            
+            <View className={`mb-3 mt-1 ${!unlocked ? 'grayscale' : ''}`}>
+                {getAchievementIcon(icon_key, 28, unlocked ? '#ea580c' : '#71717a')}
+            </View>
+            
+            <Text 
+                className={`font-bold text-xs text-center mb-1 leading-tight ${unlocked ? 'text-zinc-100' : 'text-zinc-500'}`}
+                numberOfLines={2}
+            >
+                {title}
+            </Text>
+            
+            <Text 
+                className={`text-[9px] font-medium text-center leading-[11px] ${unlocked ? 'text-zinc-500' : 'text-zinc-700'}`}
+                numberOfLines={3}
+            >
+                {subtitle}
+            </Text>
+        </View>
+    </View>
 );

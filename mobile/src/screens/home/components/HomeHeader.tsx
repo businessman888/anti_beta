@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image } from 'react-native';
-import { Flame } from 'lucide-react-native';
+
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../types/navigation';
@@ -38,15 +38,6 @@ export const HomeHeader = ({ user }: HomeHeaderProps) => {
                 </View>
             </View>
 
-            <View className="bg-zinc-900/80 rounded-full px-4 py-2 flex-row items-center border border-zinc-800">
-                <View className="pr-3 border-r border-zinc-800">
-                    <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-tighter">TST {user.testosterone}</Text>
-                </View>
-                <View className="pl-3 flex-row items-center">
-                    <Flame size={14} color="#f97316" fill="#f97316" />
-                    <Text className="text-white font-bold text-xs ml-1">{user.streak}</Text>
-                </View>
-            </View>
         </View>
     );
 };
