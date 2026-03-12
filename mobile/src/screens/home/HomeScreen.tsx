@@ -42,7 +42,7 @@ export const HomeScreen = () => {
         completeTask,
     } = usePlanStore();
 
-    const { user } = useAuthStore();
+    const { user, profile } = useAuthStore();
     const { isQuizLocked, quizAvailableIn, checkQuizStatus, todayStats, fetchTodayStats, historyStats, fetchHistory } = useProgressStore();
 
     useFocusEffect(
@@ -126,7 +126,10 @@ export const HomeScreen = () => {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 20 }}
             >
-                <HomeHeader user={homeMockData.user} />
+                <HomeHeader 
+                    profile={profile} 
+                    userEmail={user?.email} 
+                />
 
                 <TestosteroneCard
                     activityPoints={activityPoints}

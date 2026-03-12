@@ -18,7 +18,7 @@ export const getAchievementIcon = (key: string, size: number = 24, color: string
     let IconComponent = Dumbbell; // Fallback icon
 
     const IconLibraries = require('lucide-react-native');
-    const mappedKey = ACHIEVEMENT_ICONS[key];
+    const mappedKey = key ? ACHIEVEMENT_ICONS[key] : undefined;
     
     if (mappedKey && IconLibraries[mappedKey]) {
         IconComponent = IconLibraries[mappedKey] as any;

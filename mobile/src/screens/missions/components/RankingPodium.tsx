@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Text } from 'react-native';
+import { Avatar } from '../../../components/ui/Avatar';
 
 interface Competitor {
     id: string;
@@ -26,9 +27,10 @@ export const RankingPodium = ({ competitors }: RankingPodiumProps) => {
             <View className={`items-center flex-1 ${isFirst ? 'relative' : 'mt-8'}`}>
                 <View className={`${isFirst ? 'border-2 border-orange-500 rounded-3xl p-4 bg-zinc-900/50' : ''}`}>
                     <View className="relative">
-                        <Image
-                            source={{ uri: competitor.avatar }}
-                            className={`${isFirst ? 'w-20 h-20' : 'w-16 h-16'} rounded-full border-2 border-zinc-800`}
+                        <Avatar
+                            url={competitor.avatar}
+                            size={isFirst ? 80 : 64} // w-20 = 80, w-16 = 64
+                            style={{ borderWidth: 2, borderColor: '#27272a' }} // zinc-800
                         />
                         <View className="absolute -bottom-2 self-center bg-orange-600 px-2 py-0.5 rounded-full border border-zinc-950">
                             <Text className="text-white font-bold text-[10px]">#{competitor.rank}</Text>

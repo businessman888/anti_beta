@@ -4,9 +4,9 @@ import { useAuthStore } from './authStore';
 
 export interface Achievement {
     id: string;
-    nome: string;
-    descricao: string;
-    categoria: 'Treino' | 'Disciplina' | 'Comunidade';
+    title: string;
+    description: string;
+    category: string;
     icon_key: string;
     pontos_recompensa: number;
     condicao_desbloqueio: any; // jsonb
@@ -55,12 +55,12 @@ export const useAchievementsStore = create<AchievementsState>((set, get) => ({
             const { data: userAchievementsData, error: userAchievementsError } = await supabase
                 .from('user_achievements')
                 .select('achievement_id')
-                .eq('user_id', user.id);
+                .eq('user_id', String(user.id));
 
             if (userAchievementsError) throw userAchievementsError;
 
             const allAchievements = achievementsData as Achievement[] || [];
-            const unlockedIds = userAchievementsData?.map(ua => ua.achievement_id) || [];
+            const unlockedIds = userAchievementsData?.map(ua => String(ua.achievement_id)) || [];
             const total = allAchievements.length;
             const unlocked = unlockedIds.length;
             const percentage = total > 0 ? Math.round((unlocked / total) * 100) : 0;

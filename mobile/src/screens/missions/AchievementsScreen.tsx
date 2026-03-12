@@ -32,17 +32,19 @@ export const AchievementsScreen = () => {
         };
         
         allAchievements.forEach(ach => {
-            // Normalize categories to match the aggressive titling
-            let cat = ach.categoria.toUpperCase();
-            if (cat.includes('TREINO')) cat = 'FORÇA E TREINO';
-            else if (cat.includes('DISCIPLINA')) cat = 'DISCIPLINA DE ELITE';
-            else if (cat.includes('COMUNIDADE') || cat.includes('SOCIAL')) cat = 'DOMÍNIO DA COMUNIDADE';
+            // Map db categories to screen sections
+            let sectionTitle = 'SEM CATEGORIA';
+            const cat = ach.category?.toLowerCase() || '';
+
+            if (cat === 'treino') sectionTitle = 'FORÇA E TREINO';
+            else if (cat === 'disciplina') sectionTitle = 'DISCIPLINA DE ELITE';
+            else if (cat === 'comunidade') sectionTitle = 'DOMÍNIO DA COMUNIDADE';
             
-            if (groups[cat]) {
-                groups[cat].push(ach);
+            if (groups[sectionTitle]) {
+                groups[sectionTitle].push(ach);
             } else {
                 // Fallback for unknown categories
-                groups[cat] = [ach];
+                groups[sectionTitle] = [ach];
             }
         });
         
@@ -95,9 +97,9 @@ export const AchievementsScreen = () => {
                                         {achievements.map((ach) => (
                                             <AchievementCard
                                                 key={ach.id}
-                                                title={ach.nome}
-                                                subtitle={ach.descricao} // Using description or perhaps another field in the future
-                                                icon_key={ach.icon_key}
+                                                title={ach.title || 'Sem Título'}
+                                                subtitle={ach.description || ''}
+                                                icon_key={ach.icon_key || 'dumbbell'}
                                                 unlocked={unlockedAchievementIds.includes(ach.id)}
                                             />
                                         ))}

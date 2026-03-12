@@ -21,6 +21,7 @@ interface AuthState {
     initialize: () => Promise<void>;
     incrementActivityPoints: (points: number) => Promise<void>;
     ensureUserProfile: (userId: string) => Promise<void>;
+    uploadAvatar: (imageUri: string) => Promise<string | null>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -177,6 +178,60 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ onboardingCompleted: false });
         } finally {
             set({ isLoading: false });
+        }
+    },
+
+    uploadAvatar: async (imageUri: string) => {
+        const { user } = get();
+        if (!user) return null;
+        
+        try {
+            set({ isLoading: true });
+            
+            // 1. Fetch the image to blob
+            const response = await fetch(imageUri);
+            const blob = await response.blob();
+            
+            const filePath = `${user.id}/profile.jpg`;
+            
+            // 2. Upload to Supabase Storage avatars bucket
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(filePath, blob, {
+                    contentType: 'image/jpeg',
+                    upsert: true,
+                });
+                
+            if (uploadError) throw uploadError;
+            
+            // 3. Get the public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+                
+            // 4. Update the user_profiles table 
+            const { error: updateError } = await supabase
+                .from('user_profiles')
+                .update({ avatar_url: publicUrl })
+                .eq('userId', user.id);
+                
+            // Also update the `profiles` table to keep them in sync
+            await supabase
+                .from('profiles')
+                .update({ avatar_url: publicUrl })
+                .eq('id', user.id);
+                
+            if (updateError) throw updateError;
+            
+            // 5. Update local state
+            await get().refreshProfile();
+            set({ isLoading: false });
+            
+            return publicUrl;
+        } catch (error) {
+            console.error('Error in uploadAvatar:', error);
+            set({ isLoading: false });
+            return null;
         }
     },
 

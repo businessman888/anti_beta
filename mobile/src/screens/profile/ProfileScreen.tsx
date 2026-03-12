@@ -24,6 +24,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { homeMockData } from '../../mocks/homeMock';
 import { useAuthStore } from '../../store/authStore';
 import { profileService } from '../../services/profileService';
+import { Avatar } from '../../components/ui/Avatar';
 
 export const ProfileScreen = () => {
     const navigation = useNavigation();
@@ -111,9 +112,9 @@ export const ProfileScreen = () => {
                                     <ActivityIndicator color="#ff4422" />
                                 </View>
                             ) : (
-                                <Image
-                                    source={{ uri: userAvatar }}
-                                    className="w-28 h-28 rounded-full"
+                                <Avatar
+                                    url={userAvatar}
+                                    size={112} // w-28 h-28 is 112px
                                 />
                             )}
                         </View>

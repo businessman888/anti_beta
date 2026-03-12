@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Text } from 'react-native';
 import { Flame } from 'lucide-react-native';
+import { Avatar } from '../../../components/ui/Avatar';
 
 interface RankingListItemProps {
     rank: number;
@@ -17,9 +18,10 @@ export const RankingListItem = ({ rank, name, score, streak, avatar }: RankingLi
                 {rank < 10 ? `0${rank}` : rank}
             </Text>
 
-            <Image
-                source={{ uri: avatar }}
-                className="w-14 h-14 rounded-full border border-zinc-700"
+            <Avatar
+                url={avatar}
+                size={56} // 14 * 4
+                style={{ borderWidth: 1, borderColor: '#3f3f46' }} // zinc-700
             />
 
             <View className="ml-4 flex-1">

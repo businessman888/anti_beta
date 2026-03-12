@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Image } from 'react-native';
+import { View, Text } from 'react-native';
 import { Flame } from 'lucide-react-native';
+import { Avatar } from '../../../components/ui/Avatar';
 
 interface UserPositionCardProps {
     rank: number;
@@ -18,9 +19,10 @@ export const UserPositionCard = ({ rank, name, score, streak, avatar }: UserPosi
             <View className="bg-zinc-900/60 border border-orange-600/60 rounded-3xl p-5 flex-row items-center">
                 <Text className="text-white font-bold text-2xl w-12 text-center">{rank}</Text>
 
-                <Image
-                    source={{ uri: avatar }}
-                    className="w-14 h-14 rounded-full border-2 border-orange-600/30"
+                <Avatar
+                    url={avatar}
+                    size={56}
+                    style={{ borderWidth: 2, borderColor: 'rgba(234, 88, 12, 0.3)' }} // orange-600/30
                 />
 
                 <View className="ml-4 flex-1">
