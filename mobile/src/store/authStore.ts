@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { profileService, UserProfile } from '../services/profileService';
 import { planService } from '../services/api/planService';
 import { usePlanStore } from './planStore';
+import { decode } from 'base64-arraybuffer';
 
 interface AuthState {
     session: Session | null;
@@ -21,7 +22,7 @@ interface AuthState {
     initialize: () => Promise<void>;
     incrementActivityPoints: (points: number) => Promise<void>;
     ensureUserProfile: (userId: string) => Promise<void>;
-    uploadAvatar: (imageUri: string) => Promise<string | null>;
+    uploadAvatar: (base64String: string) => Promise<string | null>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -181,21 +182,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
     },
 
-    uploadAvatar: async (imageUri: string) => {
+    uploadAvatar: async (base64String: string) => {
         const { user } = get();
         if (!user) return null;
         
         try {
-            console.log('[AuthStore] Iniciando upload para URI:', imageUri);
+            console.log('[AuthStore] Iniciando upload com Base64...');
             
-            // 1. Convert local image URI to a real binary Blob via fetch
-            const response = await fetch(imageUri);
-            const blob = await response.blob();
-            console.log('Tipo do objeto:', typeof blob, blob instanceof Blob);
-            console.log('Tamanho real do blob:', blob.size);
+            // 1. Decode base64 to ArrayBuffer (which Supabase handles natively)
+            const arrayBuffer = decode(base64String);
+            
+            console.log('Tamanho real do buffer:', arrayBuffer.byteLength);
 
-            if (blob.size === 0) {
-                throw new Error('Falha na conversão: Blob vazio');
+            if (arrayBuffer.byteLength === 0) {
+                throw new Error('Falha na conversão: Buffer vazio');
             }
 
             const filePath = `${user.id}/profile.jpg`;
@@ -203,7 +203,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             // 2. Upload to Supabase Storage avatars bucket
             const { data: uploadData, error: uploadError } = await supabase.storage
                 .from('avatars')
-                .upload(filePath, blob, {
+                .upload(filePath, arrayBuffer, {
                     contentType: 'image/jpeg',
                     upsert: true,
                     cacheControl: '3600'
@@ -223,10 +223,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 
             console.log('[AuthStore] Avatar uploaded successfully. Generated URL:', publicUrl);
                 
+            const urlWithTimestamp = `${publicUrl}?t=${Date.now()}`;
+
             // 5. Update exclusively the profiles table with the clean URL (ends with .jpg)
             const { error: profileUpdateError } = await supabase
                 .from('profiles')
-                .update({ avatar_url: publicUrl })
+                .update({ avatar_url: urlWithTimestamp })
                 .eq('id', user.id);
 
             if (profileUpdateError) {
@@ -234,13 +236,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
             
             // 6. Update local state immediately with a timestamp to bust UI cache instantly
-            const urlWithTimestamp = `${publicUrl}?t=${Date.now()}`;
             const currentProfile = get().profile;
             if (currentProfile) {
                 set({ profile: { ...currentProfile, avatar_url: urlWithTimestamp } });
             }
             
-            return publicUrl;
+            return urlWithTimestamp;
         } catch (error) {
             console.error('[AuthStore] Error in uploadAvatar:', error);
             return null;

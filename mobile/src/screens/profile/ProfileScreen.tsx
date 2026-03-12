@@ -57,14 +57,18 @@ export const ProfileScreen = () => {
             mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [1, 1],
-            quality: 0.8,
+            quality: 1,
+            base64: true,
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
             const selectedImage = result.assets[0];
             setIsUploading(true);
             try {
-                const publicUrl = await uploadAvatar(selectedImage.uri);
+                if (!selectedImage.base64) {
+                    throw new Error("Base64 representation of image missing");
+                }
+                const publicUrl = await uploadAvatar(selectedImage.base64);
                 if (publicUrl) {
                     await refreshProfile();
                     Alert.alert('Sucesso', 'Foto de perfil atualizada!');
