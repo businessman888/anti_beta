@@ -26,7 +26,7 @@ interface RankingState {
     fetchGlobalRanking: () => Promise<void>;
 }
 
-const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=256&h=256&auto=format&fit=crop';
+const DEFAULT_AVATAR = ''; // Was returning pravatar string before
 
 export const useRankingStore = create<RankingState>()((set, get) => ({
     podium: [],

@@ -186,51 +186,72 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (!user) return null;
         
         try {
-            set({ isLoading: true });
-            
-            // 1. Fetch the image to blob
+            // 1. Convert local image URI to a real binary Blob via fetch
             const response = await fetch(imageUri);
             const blob = await response.blob();
-            
+            console.log('[AuthStore] Blob size:', blob.size);
+
+            if (blob.size === 0) {
+                console.error('[AuthStore] ERRO: Blob com 0 bytes. Upload cancelado.');
+                return null;
+            }
+
             const filePath = `${user.id}/profile.jpg`;
             
             // 2. Upload to Supabase Storage avatars bucket
-            const { error: uploadError } = await supabase.storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
                 .from('avatars')
                 .upload(filePath, blob, {
                     contentType: 'image/jpeg',
                     upsert: true,
                 });
+
+            if (uploadError) {
+                console.error('[AuthStore] Upload error:', uploadError);
+                throw uploadError;
+            }
+
+            console.log('[AuthStore] Upload data:', uploadData);
                 
-            if (uploadError) throw uploadError;
-            
-            // 3. Get the public URL
+            // 4. Get the public URL
             const { data: { publicUrl } } = supabase.storage
                 .from('avatars')
                 .getPublicUrl(filePath);
                 
-            // 4. Update the user_profiles table 
+            // Append timestamp to bust cache
+            const urlWithTimestamp = `${publicUrl}?t=${Date.now()}`;
+            console.log('[AuthStore] Avatar uploaded successfully. Generated URL:', urlWithTimestamp);
+                
+            // 5. Update the user_profiles table 
             const { error: updateError } = await supabase
                 .from('user_profiles')
-                .update({ avatar_url: publicUrl })
+                .update({ avatar_url: urlWithTimestamp })
                 .eq('userId', user.id);
                 
-            // Also update the `profiles` table to keep them in sync
-            await supabase
+            // Also update the profiles table to keep them in sync
+            const { error: profileUpdateError } = await supabase
                 .from('profiles')
-                .update({ avatar_url: publicUrl })
+                .update({ avatar_url: urlWithTimestamp })
                 .eq('id', user.id);
-                
-            if (updateError) throw updateError;
+
+            if (updateError) {
+                console.error('[AuthStore] user_profiles update error:', updateError);
+            }
+            if (profileUpdateError) {
+                console.error('[AuthStore] profiles update error:', profileUpdateError);
+            }
             
-            // 5. Update local state
+            // 6. Update local state immediately
+            const currentProfile = get().profile;
+            if (currentProfile) {
+                set({ profile: { ...currentProfile, avatar_url: urlWithTimestamp } });
+            }
+            // Also do a full refresh from DB to be safe
             await get().refreshProfile();
-            set({ isLoading: false });
             
-            return publicUrl;
+            return urlWithTimestamp;
         } catch (error) {
-            console.error('Error in uploadAvatar:', error);
-            set({ isLoading: false });
+            console.error('[AuthStore] Error in uploadAvatar:', error);
             return null;
         }
     },

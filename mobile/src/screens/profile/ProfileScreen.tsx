@@ -28,7 +28,7 @@ import { Avatar } from '../../components/ui/Avatar';
 
 export const ProfileScreen = () => {
     const navigation = useNavigation();
-    const { signOut, user, profile, refreshProfile } = useAuthStore();
+    const { signOut, user, profile, refreshProfile, uploadAvatar } = useAuthStore();
     const [isUploading, setIsUploading] = useState(false);
 
     const handlePickImage = async () => {
@@ -52,7 +52,7 @@ export const ProfileScreen = () => {
             const selectedImage = result.assets[0];
             setIsUploading(true);
             try {
-                const publicUrl = await profileService.uploadAvatar(user.id, selectedImage.uri);
+                const publicUrl = await uploadAvatar(selectedImage.uri);
                 if (publicUrl) {
                     await refreshProfile();
                     Alert.alert('Sucesso', 'Foto de perfil atualizada!');
@@ -87,7 +87,7 @@ export const ProfileScreen = () => {
     ];
 
     const userDisplayName = profile?.full_name || user?.email?.split('@')[0] || 'Usuário';
-    const userAvatar = profile?.avatar_url || homeMockData.user.avatar;
+    const userAvatar = profile?.avatar_url || null;
 
     return (
         <SafeAreaView className="flex-1 bg-carbono-950">

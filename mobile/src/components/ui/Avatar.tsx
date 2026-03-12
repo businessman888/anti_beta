@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Image, StyleSheet, StyleProp, ViewStyle, ImageStyle } from 'react-native';
 import { User2 } from 'lucide-react-native';
 
@@ -20,6 +20,11 @@ export const Avatar: React.FC<AvatarProps> = ({
   fallbackIconColor = '#a1a1aa' // zinc-400
 }) => {
   const [hasError, setHasError] = useState(false);
+
+  // Reset error state when URL changes (e.g. after new upload)
+  useEffect(() => {
+    setHasError(false);
+  }, [url]);
 
   const containerStyle = {
     width: size,
