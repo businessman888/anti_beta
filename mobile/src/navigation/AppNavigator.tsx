@@ -14,6 +14,9 @@ import { PlanLoadingScreen } from '../screens/onboarding/PlanLoadingScreen';
 import { HistoryScreen } from '../screens/content/HistoryScreen';
 import { GoalsScreen } from '../screens/goals/GoalsScreen';
 import { MainTabNavigator } from './MainTabNavigator';
+import { NotificationsScreen } from '../screens/profile/NotificationsScreen';
+import { SupportScreen } from '../screens/profile/SupportScreen';
+import { ScreenTrackingScreen } from '../screens/profile/ScreenTrackingScreen';
 
 import { RootStackParamList } from '../types/navigation';
 
@@ -51,6 +54,9 @@ export const AppNavigator = () => {
                             <Stack.Screen name="Agenda" component={require('../screens/workout/AgendaScreen').AgendaScreen} />
                             <Stack.Screen name="DailyQuiz" component={require('../screens/quiz/DailyQuizScreen').DailyQuizScreen} />
                             <Stack.Screen name="AgentAlpha" component={require('../screens/agent/AgentScreen').AgentScreen} />
+                            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+                            <Stack.Screen name="Support" component={SupportScreen} />
+                            <Stack.Screen name="ScreenTracking" component={ScreenTrackingScreen} />
                         </>
                     ) : (
                         <>

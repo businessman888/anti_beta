@@ -10,13 +10,8 @@ import {
     Star,
     Zap,
     CheckCircle2,
-    Settings,
     Eye,
-    Contrast,
     Headset,
-    FileText,
-    LogOut,
-    Trash2,
     ChevronRight
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -31,7 +26,7 @@ import { useAchievementsStore } from '../../store/achievementsStore';
 
 export const ProfileScreen = () => {
     const navigation = useNavigation();
-    const { signOut, user, profile, refreshProfile, uploadAvatar } = useAuthStore();
+    const { user, profile, refreshProfile, uploadAvatar } = useAuthStore();
     const { todayStats, fetchTodayStats } = useProgressStore();
     const { currentUser, fetchCohortRanking } = useRankingStore();
     const { stats: badgesStats, fetchAchievements } = useAchievementsStore();
@@ -101,12 +96,9 @@ export const ProfileScreen = () => {
 
     // Preferences items
     const preferences = [
-        { label: 'Configurações', icon: <Settings size={20} color="#737373" /> },
         { label: 'Notificações', icon: <Bell size={20} color="#737373" /> },
         { label: 'Tracking de Tela', icon: <Eye size={20} color="#737373" /> },
-        { label: 'Tema', icon: <Contrast size={20} color="#737373" /> },
         { label: 'Suporte', icon: <Headset size={20} color="#737373" /> },
-        { label: 'Termos de Uso', icon: <FileText size={20} color="#737373" /> },
     ];
 
     const userDisplayName = profile?.full_name || user?.email?.split('@')[0] || 'Usuário';
@@ -198,6 +190,15 @@ export const ProfileScreen = () => {
                             <TouchableOpacity
                                 key={index}
                                 activeOpacity={0.7}
+                                onPress={() => {
+                                    if (pref.label === 'Notificações') {
+                                        (navigation as any).navigate('Notifications');
+                                    } else if (pref.label === 'Suporte') {
+                                        (navigation as any).navigate('Support');
+                                    } else if (pref.label === 'Tracking de Tela') {
+                                        (navigation as any).navigate('ScreenTracking');
+                                    }
+                                }}
                                 className={`flex-row items-center justify-between p-4 px-6 ${index !== preferences.length - 1 ? 'border-b border-neutro-800' : ''
                                     }`}
                             >
@@ -211,26 +212,7 @@ export const ProfileScreen = () => {
                     </View>
                 </View>
 
-                {/* Account Actions Box */}
-                <View className="px-6 mt-10">
-                    <View className="bg-neutro-900 rounded-2xl overflow-hidden border border-neutro-800">
-                        <TouchableOpacity
-                            onPress={signOut}
-                            activeOpacity={0.7}
-                            className="flex-row items-center justify-between p-4 px-6 border-b border-neutro-800"
-                        >
-                            <Text className="text-brasa-500 text-base font-bold">Sair</Text>
-                            <LogOut size={20} color="#ff4422" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            activeOpacity={0.7}
-                            className="flex-row items-center justify-between p-4 px-6"
-                        >
-                            <Text className="text-brasa-500 text-base font-bold">Deletar conta</Text>
-                            <Trash2 size={20} color="#ff4422" />
-                        </TouchableOpacity>
-                    </View>
-                </View>
+
             </ScrollView>
         </SafeAreaView>
     );

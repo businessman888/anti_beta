@@ -15,6 +15,9 @@ export type RootStackParamList = {
     Agenda: undefined;
     DailyQuiz: undefined;
     AgentAlpha: undefined;
+    Notifications: undefined;
+    Support: undefined;
+    ScreenTracking: undefined;
 };
 
 export type MainTabParamList = {
