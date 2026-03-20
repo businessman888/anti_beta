@@ -11,13 +11,12 @@ export class PlanningController {
     constructor(private readonly planningService: PlanningService) { }
 
     @Post('generate-plan')
-    @ApiOperation({ summary: 'Gerar plano trimestral personalizado baseado nas respostas do quiz' })
+    @ApiOperation({ summary: 'Iniciar geração assíncrona do plano trimestral personalizado' })
     @ApiCreatedResponse({
-        description: 'Plano gerado com sucesso',
-        type: PlanResponseDto,
+        description: 'Geração iniciada com sucesso',
     })
     @ApiBadRequestResponse({ description: 'Dados de quiz inválidos' })
-    async generatePlan(@Body() dto: GeneratePlanDto): Promise<PlanResponseDto> {
+    async generatePlan(@Body() dto: GeneratePlanDto) {
         this.logger.log('Received plan generation request');
         return this.planningService.generatePlan(dto);
     }

@@ -117,27 +117,54 @@ export const usePlanStore = create<PlanState>((set, get) => ({
         set({ isGenerating: true, error: null });
 
         try {
-            const response = await planService.generatePlan(quizAnswers, userId);
-            const planData = response.data.planData as PlanData;
+            // 1. Start generation (returns immediately)
+            await planService.generatePlan(quizAnswers, userId);
 
-            // Initialize Progress Store based on the onboarding answers
-            if (userId) {
-                await useProgressStore.getState().initializeFromOnboarding(quizAnswers);
+            if (!userId) {
+                set({ isGenerating: false, error: 'userId necessário' });
+                return;
             }
 
-            set({
-                plan: planData,
-                planId: response.data.id,
-                isGenerating: false,
-                error: null,
-            });
+            // 2. Poll for completion
+            const MAX_ATTEMPTS = 60; // 60 x 3s = 3 minutes max
+            const POLL_INTERVAL = 3000;
+
+            for (let i = 0; i < MAX_ATTEMPTS; i++) {
+                await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+
+                const statusRes = await planService.getPlanStatus(userId);
+                const { hasPlan, generating, error } = statusRes.data;
+
+                if (error) {
+                    set({ isGenerating: false, error });
+                    return;
+                }
+
+                if (hasPlan && !generating) {
+                    // Plan is ready — fetch it
+                    const planRes = await planService.getUserPlan(userId);
+                    if (planRes.data && planRes.data.planData) {
+                        await useProgressStore.getState().initializeFromOnboarding(quizAnswers);
+
+                        set({
+                            plan: planRes.data.planData as PlanData,
+                            planId: planRes.data.id,
+                            isGenerating: false,
+                            error: null,
+                        });
+                        return;
+                    }
+                }
+            }
+
+            // Timed out
+            set({ isGenerating: false, error: 'Tempo esgotado ao gerar plano. Tente novamente.' });
         } catch (error: any) {
             const message = error?.response?.data?.message || error?.message || 'Erro ao gerar plano';
             set({
                 isGenerating: false,
                 error: message,
             });
-            throw error;
         }
     },
 

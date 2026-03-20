@@ -14,12 +14,34 @@ export class PlanningService {
     });
   }
 
+  // In-memory tracking of generation status per user
+  private generationStatus = new Map<string, 'generating' | 'done' | 'error'>();
+  private generationErrors = new Map<string, string>();
+
   async generatePlan(dto: GeneratePlanDto) {
     const { answers, userId } = dto;
 
-    this.logger.log(`Generating plan for user: ${userId || 'anonymous'}`);
+    if (!userId) {
+      throw new Error('userId is required for plan generation');
+    }
+
+    this.logger.log(`Starting async plan generation for user: ${userId}`);
     this.logger.log(`Quiz answers received: ${Object.keys(answers).length} fields`);
 
+    // Mark as generating
+    this.generationStatus.set(userId, 'generating');
+    this.generationErrors.delete(userId);
+
+    // Fire-and-forget: generate in background
+    this.generatePlanInBackground(userId, answers).catch((err) => {
+      this.logger.error(`Background plan generation failed for ${userId}: ${err?.message}`);
+    });
+
+    // Return immediately
+    return { status: 'generating', userId };
+  }
+
+  private async generatePlanInBackground(userId: string, answers: Record<string, any>) {
     const systemPrompt = this.buildSystemPrompt();
     const userPrompt = this.buildUserPrompt(answers);
 
@@ -60,65 +82,61 @@ export class PlanningService {
 
       this.logger.log('Plan JSON parsed successfully');
 
-      // Save plan to database if userId is provided
-      if (userId) {
-        try {
-          this.logger.log(`Saving plan to database for user ${userId}...`);
-          const plan = await this.prisma.plan.upsert({
-            where: { userId },
-            create: {
-              userId,
-              planData: planJson,
-            },
-            update: {
-              planData: planJson,
-            },
-          });
-
-          this.logger.log(`Plan saved for user ${userId}, plan id: ${plan.id}`);
-
-          return {
-            id: plan.id,
-            userId: plan.userId,
-            planData: plan.planData,
-            createdAt: plan.createdAt,
-          };
-        } catch (dbError: any) {
-          this.logger.error(`Failed to save plan to DB: ${dbError?.message}`);
-          // Return the plan anyway — don't lose the AI generation
-          return {
-            id: 'unsaved',
+      // Save plan to database
+      try {
+        this.logger.log(`Saving plan to database for user ${userId}...`);
+        const plan = await this.prisma.plan.upsert({
+          where: { userId },
+          create: {
             userId,
             planData: planJson,
-            createdAt: new Date(),
-          };
-        }
-      }
+          },
+          update: {
+            planData: planJson,
+          },
+        });
 
-      // Return plan without saving if no userId
-      return {
-        id: 'temp',
-        userId: 'anonymous',
-        planData: planJson,
-        createdAt: new Date(),
-      };
+        this.logger.log(`Plan saved for user ${userId}, plan id: ${plan.id}`);
+        this.generationStatus.set(userId, 'done');
+      } catch (dbError: any) {
+        this.logger.error(`Failed to save plan to DB: ${dbError?.message}`);
+        this.generationStatus.set(userId, 'error');
+        this.generationErrors.set(userId, 'Erro ao salvar plano no banco de dados');
+      }
     } catch (error: any) {
       this.logger.error(`Plan generation failed: ${error?.message || error}`);
       if (error?.status) {
         this.logger.error(`Anthropic API error status: ${error.status}`);
       }
-      throw error;
+      this.generationStatus.set(userId, 'error');
+      this.generationErrors.set(userId, error?.message || 'Erro ao gerar plano');
     }
   }
 
-  async getPlanStatus(userId: string): Promise<{ hasPlan: boolean }> {
+  async getPlanStatus(userId: string): Promise<{ hasPlan: boolean; generating: boolean; error?: string }> {
     this.logger.log(`Checking plan status for user: ${userId}`);
+
+    const genStatus = this.generationStatus.get(userId);
+    const genError = this.generationErrors.get(userId);
+
     const plan = await this.prisma.plan.findUnique({
       where: { userId },
       select: { id: true },
     });
 
-    return { hasPlan: !!plan };
+    // Clean up status tracking once client has seen the result
+    if (genStatus === 'done' || genStatus === 'error') {
+      this.generationStatus.delete(userId);
+      if (genStatus === 'error') {
+        this.generationErrors.delete(userId);
+      }
+    }
+
+    return {
+      hasPlan: !!plan,
+      generating: genStatus === 'generating',
+      ...(genError ? { error: genError } : {}),
+    };
   }
 
   async getPlanByUserId(userId: string) {
