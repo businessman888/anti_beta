@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { CheckCircle2, ChevronRight, Lock } from 'lucide-react-native';
+import { CheckCircle2, Circle, Lock } from 'lucide-react-native';
 import { usePlanStore } from '../../../store/planStore';
 
 export const MonthlyGoalsView = () => {
@@ -18,7 +18,8 @@ export const MonthlyGoalsView = () => {
     return (
         <View className="flex-1">
             {months.map((month, index) => {
-                const isCurrent = index === 0; // Current assumption: month 1 is current
+                const isCurrent = index === 0;
+                const isCompleted = false;
 
                 if (isCurrent) {
                     return (
@@ -33,7 +34,11 @@ export const MonthlyGoalsView = () => {
                                     <Text className="text-orange-600 font-bold mt-1">Em andamento</Text>
                                     <Text className="text-zinc-400 text-sm mt-3" numberOfLines={2}>{month.objetivo}</Text>
                                 </View>
-                                <ChevronRight size={32} color="#f97316" />
+                                {isCompleted ? (
+                                    <CheckCircle2 size={28} color="#22c55e" strokeWidth={3} />
+                                ) : (
+                                    <Circle size={28} color="#3f3f46" />
+                                )}
                             </View>
 
                             <View className="mt-4">
@@ -57,7 +62,7 @@ export const MonthlyGoalsView = () => {
                                 <Text className="text-zinc-600 font-bold mt-1">Bloqueado</Text>
                                 <Text className="text-zinc-600 text-xs mt-2" numberOfLines={1}>{month.objetivo}</Text>
                             </View>
-                            <Lock size={32} color="#3f3f46" />
+                            <Lock size={28} color="#3f3f46" />
                         </View>
                         <View className="h-1 bg-zinc-800/30 rounded-full w-full" />
                     </View>

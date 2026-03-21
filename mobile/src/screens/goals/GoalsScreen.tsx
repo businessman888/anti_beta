@@ -5,13 +5,12 @@ import { ChevronLeft } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { GoalsTabSelector } from './components/GoalsTabSelector';
 import { DailyGoalsView } from './components/DailyGoalsView';
-import { AnnualGoalsView } from './components/AnnualGoalsView';
 import { MonthlyGoalsView } from './components/MonthlyGoalsView';
 import { WeeklyGoalsView } from './components/WeeklyGoalsView';
 
 export const GoalsScreen = () => {
     const navigation = useNavigation();
-    const [activeTab, setActiveTab] = useState<'Anual' | 'Mensal' | 'Semanal' | 'Diário'>('Diário');
+    const [activeTab, setActiveTab] = useState<'Mensal' | 'Semanal' | 'Diário'>('Diário');
 
     return (
         <SafeAreaView className="flex-1 bg-zinc-950">
@@ -40,8 +39,6 @@ export const GoalsScreen = () => {
 
                 {activeTab === 'Diário' ? (
                     <DailyGoalsView />
-                ) : activeTab === 'Anual' ? (
-                    <AnnualGoalsView />
                 ) : activeTab === 'Mensal' ? (
                     <MonthlyGoalsView />
                 ) : activeTab === 'Semanal' ? (
