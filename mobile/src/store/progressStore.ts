@@ -38,6 +38,16 @@ export interface WeeklyInsight {
     pointsOfImprovement: string[];
     nextObjectiveTitle: string;
     nextObjectivePercent: number;
+    compliancePercent: number;
+    treinoPercent: number;
+    hidratacaoPercent: number;
+    nofapStreakDays: number;
+    focusTitle: string;
+    focusDescription: string;
+    tacticalRecommendation: string;
+    bookTitle: string;
+    bookAuthor: string;
+    bookReason: string;
 }
 
 
@@ -179,19 +189,44 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
                             : (response.data.pointsOfImprovement ? [response.data.pointsOfImprovement] : []),
                         nextObjectiveTitle: response.data.nextObjectiveTitle,
                         nextObjectivePercent: response.data.nextObjectivePercent,
+                        compliancePercent: response.data.compliancePercent || 0,
+                        treinoPercent: response.data.treinoPercent || 0,
+                        hidratacaoPercent: response.data.hidratacaoPercent || 0,
+                        nofapStreakDays: response.data.nofapStreakDays || 0,
+                        focusTitle: response.data.focusTitle || '',
+                        focusDescription: response.data.focusDescription || '',
+                        tacticalRecommendation: response.data.tacticalRecommendation || '',
+                        bookTitle: response.data.bookTitle || '',
+                        bookAuthor: response.data.bookAuthor || '',
+                        bookReason: response.data.bookReason || '',
                     },
                     isInsightLoading: false,
                 });
             }
         } catch (error: any) {
             console.error('Error fetching weekly insights:', error);
-            // Handle specific status code 400 for 'Poucos dados'
-            if (error.response?.status === 400) {
-                set({ insightError: error.response.data.message });
-            } else {
-                set({ insightError: 'Erro ao analisar sua semana.' });
-            }
-            set({ isInsightLoading: false, weeklyInsight: null });
+            // On any error, show a friendly fallback instead of crashing
+            set({
+                isInsightLoading: false,
+                insightError: null,
+                weeklyInsight: {
+                    id: 'fallback',
+                    status: 'INSUFFICIENT_DATA',
+                    pointsOfImprovement: [],
+                    nextObjectiveTitle: 'Aguardando consistência...',
+                    nextObjectivePercent: 0,
+                    compliancePercent: 0,
+                    treinoPercent: 0,
+                    hidratacaoPercent: 0,
+                    nofapStreakDays: 0,
+                    focusTitle: '',
+                    focusDescription: '',
+                    tacticalRecommendation: '',
+                    bookTitle: '',
+                    bookAuthor: '',
+                    bookReason: '',
+                },
+            });
         }
     },
 

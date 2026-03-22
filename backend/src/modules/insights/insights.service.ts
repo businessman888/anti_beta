@@ -1,10 +1,29 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import Anthropic from '@anthropic-ai/sdk';
+
+const EMPTY_INSIGHT = {
+    id: 'waiting_insight',
+    status: 'INSUFFICIENT_DATA',
+    pointsOfImprovement: [],
+    nextObjectiveTitle: 'Aguardando consistência...',
+    nextObjectivePercent: 0,
+    compliancePercent: 0,
+    treinoPercent: 0,
+    hidratacaoPercent: 0,
+    nofapStreakDays: 0,
+    focusTitle: '',
+    focusDescription: '',
+    tacticalRecommendation: '',
+    bookTitle: '',
+    bookAuthor: '',
+    bookReason: '',
+};
 
 @Injectable()
 export class WeeklyInsightsService {
     private anthropic: Anthropic;
+    private readonly logger = new Logger(WeeklyInsightsService.name);
 
     constructor(private prisma: PrismaService) {
         this.anthropic = new Anthropic({
@@ -13,22 +32,39 @@ export class WeeklyInsightsService {
     }
 
     async getWeeklyInsight(userId: string) {
-        const today = new Date();
+        try {
+            return await this._generateWeeklyInsight(userId);
+        } catch (error) {
+            this.logger.error(`Unhandled error in getWeeklyInsight for user ${userId}: ${error?.message || error}`);
+            return { ...EMPTY_INSIGHT };
+        }
+    }
+
+    private async _generateWeeklyInsight(userId: string) {
+        const now = new Date();
+        const day = now.getDay();
+
         // Identifica segunda-feira atual (ou mais recente)
-        const day = today.getDay();
-        const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-        const startOfWeek = new Date(today.setDate(diff));
+        const startOfWeek = new Date(now);
+        const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+        startOfWeek.setDate(diff);
         startOfWeek.setHours(0, 0, 0, 0);
 
         // 1. Verifica se já existe um relatório nesta semana
-        const existingInsight = await this.prisma.weeklyInsight.findUnique({
-            where: {
-                userId_weekStartDate: {
-                    userId,
-                    weekStartDate: startOfWeek,
+        let existingInsight: any = null;
+        try {
+            existingInsight = await this.prisma.weeklyInsight.findUnique({
+                where: {
+                    userId_weekStartDate: {
+                        userId,
+                        weekStartDate: startOfWeek,
+                    },
                 },
-            },
-        });
+            });
+        } catch (dbError) {
+            this.logger.warn(`DB error fetching existing insight (possibly missing columns): ${dbError?.message}`);
+            // Table or columns might not exist yet — fall through to stats-based response
+        }
 
         if (existingInsight) {
             return existingInsight;
@@ -43,108 +79,166 @@ export class WeeklyInsightsService {
             orderBy: { date: 'asc' },
         });
 
-        // 3. Regra de 4 Dias: Conta as datas com progresso nesta semana
+        // 3. Regra de 4 Dias
         const distinctDays = new Set(stats.map(s => s.date.toISOString().split('T')[0]));
 
         if (distinctDays.size < 4) {
-            return {
-                id: 'waiting_insight',
-                status: 'INSUFFICIENT_DATA',
-                pointsOfImprovement: [],
-                nextObjectiveTitle: 'Aguardando consistência...',
-                nextObjectivePercent: 0,
-            };
+            return { ...EMPTY_INSIGHT };
         }
 
         // Se NÃO for domingo e não tem relatório anterior, não gera um novo.
         if (day !== 0) {
             return {
-                id: 'waiting_insight',
+                ...EMPTY_INSIGHT,
                 status: 'waiting',
                 pointsOfImprovement: ['Aguarde o progresso da semana para receber seus pontos de melhoria.'],
                 nextObjectiveTitle: 'Coletando dados Alpha...',
-                nextObjectivePercent: 0,
             };
         }
 
-        const completions = await this.prisma.dailyCompletion.findMany({
-            where: {
-                userId,
-                completedAt: { gte: startOfWeek },
-            },
-        });
+        let completionsCount = 0;
+        try {
+            const completions = await this.prisma.dailyCompletion.findMany({
+                where: {
+                    userId,
+                    completedAt: { gte: startOfWeek },
+                },
+            });
+            completionsCount = completions.length;
+        } catch (e) {
+            this.logger.warn(`Error fetching completions: ${e?.message}`);
+        }
 
-        // 4. Preparar contexto pro Claude
+        // 4. Calcular métricas de progresso
+        const mediaTreino = Math.round(stats.reduce((acc, curr) => acc + curr.treinoProgress, 0) / stats.length);
+        const mediaHidratacao = Math.round(stats.reduce((acc, curr) => acc + curr.hidratacaoProgress, 0) / stats.length);
+        const nofapStreakDays = stats[stats.length - 1]?.nofapStreak || 0;
+
+        const allPillars = stats.map(s => {
+            const total = s.nofapProgress + s.treinoProgress + s.alimentacaoProgress +
+                s.sonoProgress + s.hidratacaoProgress + s.praticasProgress +
+                s.redesProgress + s.viciosProgress;
+            return total / 8;
+        });
+        const compliancePercent = Math.round(allPillars.reduce((a, b) => a + b, 0) / allPillars.length);
+
         const contextData = {
             diasRegistrados: distinctDays.size,
-            mediaNofap: stats.reduce((acc, curr) => acc + curr.nofapProgress, 0) / stats.length,
-            mediaTreino: stats.reduce((acc, curr) => acc + curr.treinoProgress, 0) / stats.length,
-            mediaAlimentacao: stats.reduce((acc, curr) => acc + curr.alimentacaoProgress, 0) / stats.length,
-            mediaSono: stats.reduce((acc, curr) => acc + curr.sonoProgress, 0) / stats.length,
-            mediaHidratacao: stats.reduce((acc, curr) => acc + curr.hidratacaoProgress, 0) / stats.length,
-            mediaPraticas: stats.reduce((acc, curr) => acc + curr.praticasProgress, 0) / stats.length,
-            mediaRedes: stats.reduce((acc, curr) => acc + curr.redesProgress, 0) / stats.length,
-            mediaVicios: stats.reduce((acc, curr) => acc + curr.viciosProgress, 0) / stats.length,
-            diasNoFapAtuais: stats[stats.length - 1]?.nofapStreak || 0,
-            tarefasConcluidas: completions.length,
+            complianceGeral: compliancePercent,
+            mediaNofap: Math.round(stats.reduce((acc, curr) => acc + curr.nofapProgress, 0) / stats.length),
+            mediaTreino,
+            mediaAlimentacao: Math.round(stats.reduce((acc, curr) => acc + curr.alimentacaoProgress, 0) / stats.length),
+            mediaSono: Math.round(stats.reduce((acc, curr) => acc + curr.sonoProgress, 0) / stats.length),
+            mediaHidratacao,
+            mediaPraticas: Math.round(stats.reduce((acc, curr) => acc + curr.praticasProgress, 0) / stats.length),
+            mediaRedes: Math.round(stats.reduce((acc, curr) => acc + curr.redesProgress, 0) / stats.length),
+            mediaVicios: Math.round(stats.reduce((acc, curr) => acc + curr.viciosProgress, 0) / stats.length),
+            diasNoFapAtuais: nofapStreakDays,
+            tarefasConcluidas: completionsCount,
         };
 
-        // 5. Prompt para Claude
-        const prompt = `Você é o Coach Alpha, um treinador pragmático e direto focado no desenvolvimento masculino. 
+        // 5. Prompt expandido para Claude
+        const prompt = `Você é o Coach Alpha, um treinador pragmático e direto focado no desenvolvimento masculino.
 Analise os dados da semana de desempenho deste usuário:
 ${JSON.stringify(contextData, null, 2)}
 
 Regras de Tough Love:
 - Se a 'mediaSono' estiver baixa ou 'diasNoFapAtuais' estiverem caindo (houve recaída), seja direto e duro na sugestão.
 - Se a disciplina geral (treino e alimentação) for boa, encoraje a avançar ao próximo nível.
+- Identifique o pilar MAIS FRACO do usuário e foque a recomendação nele.
 
 Tarefa:
-Gere exatamente 3 pontos curtos de melhoria prática ("pointsOfImprovement") e defina o "nextObjectiveTitle" e uma porcentagem ("nextObjectivePercent" entre 10 a 100) para basear o próximo objetivo.
+Gere um relatório semanal completo com:
+1. "pointsOfImprovement": exatamente 3 pontos curtos de melhoria prática
+2. "nextObjectiveTitle": nome do próximo objetivo (ex: "Nível Monge", "Disciplina Espartana")
+3. "nextObjectivePercent": porcentagem de 10 a 100 para o próximo objetivo
+4. "focusTitle": título curto e impactante do foco semanal (ex: "Protocolo de emergência", "Modo disciplina total")
+5. "focusDescription": descrição de 1-2 frases do que o usuário deve focar esta semana, baseado no pilar mais fraco
+6. "tacticalRecommendation": uma dica tática prática e específica de 1-2 frases que o usuário pode aplicar imediatamente
+7. "bookTitle": título de um livro real relacionado ao ponto fraco do usuário (deve ser um livro que existe de verdade)
+8. "bookAuthor": autor real do livro
+9. "bookReason": uma frase curta explicando por que esse livro é relevante para o momento atual do usuário (comece com "Por quê:")
 
-Responda APENAS com um objeto JSON válido (sem markdown, sem crases, sem texto solto) com a seguinte exata estrutura:
+Responda APENAS com um objeto JSON válido (sem markdown, sem crases, sem texto solto) com essa exata estrutura:
 {
   "pointsOfImprovement": ["Ponto 1...", "Ponto 2...", "Ponto 3..."],
   "nextObjectiveTitle": "Ex: Nível Monge",
-  "nextObjectivePercent": 70
+  "nextObjectivePercent": 70,
+  "focusTitle": "Título do foco",
+  "focusDescription": "Descrição do foco semanal",
+  "tacticalRecommendation": "Dica tática específica",
+  "bookTitle": "Nome do Livro",
+  "bookAuthor": "Nome do Autor",
+  "bookReason": "Por quê: explicação curta"
 }`;
 
         let insightResult;
         try {
             const msg = await this.anthropic.messages.create({
-                model: 'claude-3-5-haiku-20241022',
+                model: 'claude-haiku-4-5-20251001',
                 max_tokens: 1024,
                 temperature: 0.7,
-                system: "Você é um assistente estrito que sempre retorna apenas um JSON limpo, sem markdown.",
+                system: "Você é um assistente estrito que sempre retorna apenas um JSON limpo, sem markdown. Recomende apenas livros reais que existem.",
                 messages: [{ role: 'user', content: prompt }],
             });
 
             const responseText = 'text' in msg.content[0] ? msg.content[0].text : '';
-
-            // Sanitizar caso a IA coloque blocos ```json
             const cleanedJsonStr = responseText.replace(/```json|```/g, '').trim();
             insightResult = JSON.parse(cleanedJsonStr);
         } catch (e) {
-            console.error('Erro no Claude:', e);
+            this.logger.error('Erro no Claude:', e);
             return {
-                id: 'waiting_insight',
-                status: 'waiting',
-                pointsOfImprovement: ['Erro no servidor de IA. Aguarde e tente novamente mais tarde.'],
-                nextObjectiveTitle: 'Análise Pausada',
-                nextObjectivePercent: 0,
+                ...EMPTY_INSIGHT,
+                status: 'error',
+                compliancePercent,
+                treinoPercent: mediaTreino,
+                hidratacaoPercent: mediaHidratacao,
+                nofapStreakDays,
             };
         }
 
         // 6. Salvar no banco
-        const createdInsight = await this.prisma.weeklyInsight.create({
-            data: {
-                userId,
-                weekStartDate: startOfWeek,
+        try {
+            const createdInsight = await this.prisma.weeklyInsight.create({
+                data: {
+                    userId,
+                    weekStartDate: startOfWeek,
+                    pointsOfImprovement: insightResult.pointsOfImprovement,
+                    nextObjectiveTitle: insightResult.nextObjectiveTitle,
+                    nextObjectivePercent: insightResult.nextObjectivePercent,
+                    compliancePercent,
+                    treinoPercent: mediaTreino,
+                    hidratacaoPercent: mediaHidratacao,
+                    nofapStreakDays,
+                    focusTitle: insightResult.focusTitle || '',
+                    focusDescription: insightResult.focusDescription || '',
+                    tacticalRecommendation: insightResult.tacticalRecommendation || '',
+                    bookTitle: insightResult.bookTitle || '',
+                    bookAuthor: insightResult.bookAuthor || '',
+                    bookReason: insightResult.bookReason || '',
+                },
+            });
+            return createdInsight;
+        } catch (dbError) {
+            this.logger.warn(`Could not save insight to DB (migration pending?): ${dbError?.message}`);
+            // Return the AI result even if we can't persist it
+            return {
+                id: 'generated_insight',
+                status: 'generated',
                 pointsOfImprovement: insightResult.pointsOfImprovement,
                 nextObjectiveTitle: insightResult.nextObjectiveTitle,
                 nextObjectivePercent: insightResult.nextObjectivePercent,
-            },
-        });
-
-        return createdInsight;
+                compliancePercent,
+                treinoPercent: mediaTreino,
+                hidratacaoPercent: mediaHidratacao,
+                nofapStreakDays,
+                focusTitle: insightResult.focusTitle || '',
+                focusDescription: insightResult.focusDescription || '',
+                tacticalRecommendation: insightResult.tacticalRecommendation || '',
+                bookTitle: insightResult.bookTitle || '',
+                bookAuthor: insightResult.bookAuthor || '',
+                bookReason: insightResult.bookReason || '',
+            };
+        }
     }
 }

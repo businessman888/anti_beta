@@ -40,7 +40,7 @@ export const TestoScreen = () => {
     const navigation = useNavigation();
     const [historyTab, setHistoryTab] = useState<'semanal' | 'mensal'>('semanal');
 
-    const { todayStats, fetchTodayStats, isLoading, historyStats, fetchHistory, weeklyInsight, fetchWeeklyInsights, isInsightLoading, insightError } = useProgressStore();
+    const { todayStats, fetchTodayStats, isLoading, historyStats, fetchHistory, weeklyInsight, fetchWeeklyInsights, isInsightLoading } = useProgressStore();
 
     useFocusEffect(
         useCallback(() => {
@@ -261,14 +261,13 @@ export const TestoScreen = () => {
                                     <ActivityIndicator size="small" color="#ea580c" />
                                     <Text className="text-zinc-500 mt-3 text-sm">Analisando sua semana...</Text>
                                 </View>
-                            ) : insightError ? (
-                                <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-                                    <Text className="text-zinc-400 text-sm text-center leading-5">{insightError}</Text>
-                                </View>
-                            ) : weeklyInsight?.status === 'INSUFFICIENT_DATA' ? (
+                            ) : (!weeklyInsight || weeklyInsight.status === 'INSUFFICIENT_DATA' || weeklyInsight.status === 'waiting') ? (
                                 <View className="items-start mb-2">
-                                    <Text className="text-zinc-300 text-sm leading-5">
-                                        Continue com consistência. Este card analisa seu desempenho semanal todo domingo, desde que você tenha pelo menos 4 dias de progresso registrados.
+                                    <Text className="text-zinc-300 text-sm leading-5 mb-3">
+                                        Mantenha a consistência, Alpha. Continue cumprindo suas metas diárias.
+                                    </Text>
+                                    <Text className="text-zinc-500 text-sm leading-5">
+                                        Sua análise de melhorias será gerada no domingo, com pelo menos 4 dias de progresso registrados nesta semana.
                                     </Text>
                                 </View>
                             ) : weeklyInsight && weeklyInsight.pointsOfImprovement.length > 0 ? (

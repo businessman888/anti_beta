@@ -194,6 +194,20 @@ model WeeklyInsight {
   nextObjectiveTitle    String   @map("next_objective_title")
   nextObjectivePercent  Int      @map("next_objective_percent")
 
+  // Progress metrics (calculated from weekly stats)
+  compliancePercent     Int      @default(0) @map("compliance_percent")
+  treinoPercent         Int      @default(0) @map("treino_percent")
+  hidratacaoPercent     Int      @default(0) @map("hidratacao_percent")
+  nofapStreakDays       Int      @default(0) @map("nofap_streak_days")
+
+  // AI-generated sections
+  focusTitle            String   @default("") @map("focus_title")
+  focusDescription      String   @default("") @map("focus_description")
+  tacticalRecommendation String  @default("") @map("tactical_recommendation")
+  bookTitle             String   @default("") @map("book_title")
+  bookAuthor            String   @default("") @map("book_author")
+  bookReason            String   @default("") @map("book_reason")
+
   createdAt             DateTime @default(now()) @map("created_at")
 
   @@unique([userId, weekStartDate])

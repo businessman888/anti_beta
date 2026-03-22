@@ -179,15 +179,16 @@ export class PlanningService {
 
   async getDailyCompletions(userId: string) {
     this.logger.log(`Fetching daily completions for user: ${userId}`);
-    const today = new Date();
-    // Use the start of the day in local time or UTC depending on requirements
-    // For now, let's just use what Prisma/Postgres CURRENT_DATE provides
+    // Build a date-only string (YYYY-MM-DD) to match the @db.Date column
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayDate = new Date(todayStr + 'T00:00:00.000Z');
 
     return this.prisma.dailyCompletion.findMany({
       where: {
         userId,
         completedAt: {
-          equals: today,
+          equals: todayDate,
         },
       },
     });

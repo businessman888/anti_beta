@@ -40,6 +40,7 @@ export const HomeScreen = () => {
         incrementHydration,
         completions,
         completeTask,
+        fetchCompletions,
     } = usePlanStore();
 
     const { user, profile } = useAuthStore();
@@ -51,8 +52,9 @@ export const HomeScreen = () => {
                 checkQuizStatus();
                 fetchTodayStats();
                 fetchHistory('weekly');
+                fetchCompletions(user.id);
             }
-        }, [user, checkQuizStatus])
+        }, [user, checkQuizStatus, fetchCompletions])
     );
 
     // Calculate weekly testo growth

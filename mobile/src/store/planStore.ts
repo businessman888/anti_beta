@@ -194,7 +194,15 @@ export const usePlanStore = create<PlanState>((set, get) => ({
             const response = await planService.getCompletions(userId);
             const completionItems = response.data || [];
             const completionSet = new Set<string>(completionItems.map((c: any) => c.task_id));
-            set({ completions: completionSet });
+
+            // Restore hydration state if the goal was already completed today
+            const updates: Partial<PlanState> = { completions: completionSet };
+            if (completionSet.has('hydration_daily_goal')) {
+                const target = get().getHydration();
+                updates.hydrationCurrent = target;
+            }
+
+            set(updates);
         } catch (error) {
             console.error('Error fetching completions:', error);
         }
@@ -320,29 +328,35 @@ export const usePlanStore = create<PlanState>((set, get) => ({
         const { completions } = get();
         if (completions.has(taskId)) return;
 
+        // Update UI immediately (Optimistic update)
+        const newCompletions = new Set(completions);
+        newCompletions.add(taskId);
+        set({ completions: newCompletions });
+
         try {
-            // Update UI immediately (Optimistic update)
-            const newCompletions = new Set(completions);
-            newCompletions.add(taskId);
-            set({ completions: newCompletions });
+            // Save to backend first
+            const response = await planService.completeTask(userId, taskId);
 
-            // Hook into Progress Store for gamification
-            const progressStore = useProgressStore.getState();
-            if (taskId === 'hydration_daily_goal') {
-                progressStore.incrementPillar('hidratacaoProgress', 100);
-            } else if (taskId.startsWith('workout_completed_')) {
-                progressStore.incrementPillar('treinoProgress', 100);
-            } else if (taskId.startsWith('meal_')) {
-                progressStore.incrementPillar('alimentacaoProgress', 20);
-            } else if (taskId.startsWith('bio_')) {
-                progressStore.incrementPillar('praticasProgress', 50);
+            // Only increment progress if it was a new completion (not "Already completed today")
+            const alreadyCompleted = response.data?.message === 'Already completed today';
+            if (!alreadyCompleted) {
+                const progressStore = useProgressStore.getState();
+                if (taskId === 'hydration_daily_goal') {
+                    progressStore.incrementPillar('hidratacaoProgress', 100);
+                } else if (taskId.startsWith('workout_completed_')) {
+                    progressStore.incrementPillar('treinoProgress', 100);
+                } else if (taskId.startsWith('meal_')) {
+                    progressStore.incrementPillar('alimentacaoProgress', 20);
+                } else if (taskId.startsWith('bio_')) {
+                    progressStore.incrementPillar('praticasProgress', 50);
+                }
             }
-
-            // Save to backend
-            await planService.completeTask(userId, taskId);
         } catch (error) {
             console.error(`Error completing task ${taskId}:`, error);
-            // Revert on error if necessary, or just log
+            // Revert optimistic update on network error
+            const revertedCompletions = new Set(get().completions);
+            revertedCompletions.delete(taskId);
+            set({ completions: revertedCompletions });
         }
     },
 }))

@@ -1,10 +1,79 @@
-import React from 'react';
-import { View, Text, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { ChevronLeft, BarChart2, CheckCircle2, AlertTriangle, Target, Bell, Lightbulb, BookOpen, Droplet } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useProgressStore } from '../../store/progressStore';
 
 export const WeeklyTipScreen = () => {
     const navigation = useNavigation();
+    const { weeklyInsight, isInsightLoading, fetchWeeklyInsights } = useProgressStore();
+
+    useEffect(() => {
+        fetchWeeklyInsights();
+    }, []);
+
+    const isWaiting = !weeklyInsight || weeklyInsight.status === 'INSUFFICIENT_DATA' || weeklyInsight.status === 'waiting';
+
+    if (isInsightLoading) {
+        return (
+            <SafeAreaView className="flex-1 bg-zinc-950">
+                <View className="flex-row items-center px-6 py-4">
+                    <TouchableOpacity onPress={() => navigation.goBack()} className="p-2">
+                        <ChevronLeft size={24} color="white" />
+                    </TouchableOpacity>
+                    <Text className="text-white font-bold text-xl ml-4">Dica da semana</Text>
+                </View>
+                <View className="flex-1 items-center justify-center">
+                    <ActivityIndicator size="large" color="#f97316" />
+                    <Text className="text-zinc-500 mt-4">Analisando sua semana...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (isWaiting) {
+        return (
+            <SafeAreaView className="flex-1 bg-zinc-950">
+                <View className="flex-row items-center px-6 py-4">
+                    <TouchableOpacity onPress={() => navigation.goBack()} className="p-2">
+                        <ChevronLeft size={24} color="white" />
+                    </TouchableOpacity>
+                    <Text className="text-white font-bold text-xl ml-4">Dica da semana</Text>
+                </View>
+                <View className="flex-1 items-center justify-center px-8">
+                    <Target size={48} color="#f97316" />
+                    <Text className="text-white font-bold text-lg mt-6 text-center">
+                        Mantenha a consistência, Alpha.
+                    </Text>
+                    <Text className="text-zinc-500 text-center mt-3 leading-5">
+                        Continue cumprindo suas metas diárias. Sua análise semanal personalizada será gerada no domingo, com pelo menos 4 dias de progresso registrados.
+                    </Text>
+                    <View className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 mt-8 w-full">
+                        <Text className="text-orange-500 font-bold text-sm mb-2">Como funciona:</Text>
+                        <Text className="text-zinc-500 text-sm leading-5">
+                            Todo domingo, a IA analisa seu desempenho semanal e gera recomendações táticas, foco da semana e sugestão de livro — tudo personalizado para você.
+                        </Text>
+                    </View>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    const compliance = weeklyInsight.compliancePercent;
+    const treino = weeklyInsight.treinoPercent;
+    const hidratacao = weeklyInsight.hidratacaoPercent;
+    const nofapDays = weeklyInsight.nofapStreakDays;
+
+    const getStatusIcon = (value: number) => {
+        if (value >= 80) return <CheckCircle2 size={18} color="#22c55e" strokeWidth={3} />;
+        if (value >= 60) return null;
+        return <AlertTriangle size={18} color="#f97316" />;
+    };
+
+    const getLabelColor = (value: number) => {
+        if (value < 60) return 'text-orange-500';
+        return 'text-zinc-700';
+    };
 
     return (
         <SafeAreaView className="flex-1 bg-zinc-950">
@@ -24,70 +93,84 @@ export const WeeklyTipScreen = () => {
                 {/* Progress Grid Segment */}
                 <SectionHeader icon={<BarChart2 size={20} color="#f97316" />} title="Seu progresso" />
                 <View className="flex-row flex-wrap gap-4 mb-10">
-                    <ProgressBox label="Compliance" value="85%" />
+                    <ProgressBox
+                        label="Compliance"
+                        value={`${compliance}%`}
+                        icon={getStatusIcon(compliance)}
+                        labelColor={getLabelColor(compliance)}
+                    />
                     <ProgressBox
                         label="Treino"
-                        value="100%"
-                        icon={<CheckCircle2 size={18} color="#22c55e" strokeWidth={3} />}
+                        value={`${treino}%`}
+                        icon={getStatusIcon(treino)}
+                        labelColor={getLabelColor(treino)}
                     />
                     <ProgressBox
                         label="Hidratação"
-                        labelColor="text-orange-500"
-                        value="57%"
-                        icon={<AlertTriangle size={18} color="#f97316" />}
+                        value={`${hidratacao}%`}
+                        icon={getStatusIcon(hidratacao)}
+                        labelColor={getLabelColor(hidratacao)}
                     />
                     <ProgressBox
-                        label="Treino"
-                        value="14 dias"
-                        icon={<CheckCircle2 size={18} color="#22c55e" strokeWidth={3} />}
+                        label="NoFap"
+                        value={`${nofapDays} dias`}
+                        icon={nofapDays >= 14 ? <CheckCircle2 size={18} color="#22c55e" strokeWidth={3} /> : <AlertTriangle size={18} color="#f97316" />}
+                        labelColor={nofapDays < 7 ? 'text-orange-500' : 'text-zinc-700'}
                     />
                 </View>
 
                 {/* Focus Segment */}
-                <SectionHeader icon={<Target size={20} color="#f97316" />} title="Foco esta semana" />
-                <View className="bg-zinc-900/50 border border-zinc-900 rounded-3xl p-6 flex-row mb-10 overflow-hidden">
-                    <View className="absolute left-0 top-0 bottom-0 w-1 bg-orange-600" />
-                    <View className="mr-5 mt-1">
-                        <Bell size={24} color="#f97316" fill="#f97316" />
-                    </View>
-                    <View className="flex-1">
-                        <Text className="text-orange-600 font-bold text-lg mb-2">Protocolo de emergência</Text>
-                        <Text className="text-zinc-500 text-sm leading-5">
-                            Sua hidratação está abaixo do protocolo. Configure alarmes a cada 2h para ingestão forçada.
-                        </Text>
-                    </View>
-                </View>
+                {weeklyInsight.focusTitle ? (
+                    <>
+                        <SectionHeader icon={<Target size={20} color="#f97316" />} title="Foco esta semana" />
+                        <View className="bg-zinc-900/50 border border-zinc-900 rounded-3xl p-6 flex-row mb-10 overflow-hidden">
+                            <View className="absolute left-0 top-0 bottom-0 w-1 bg-orange-600" />
+                            <View className="mr-5 mt-1">
+                                <Bell size={24} color="#f97316" fill="#f97316" />
+                            </View>
+                            <View className="flex-1">
+                                <Text className="text-orange-600 font-bold text-lg mb-2">{weeklyInsight.focusTitle}</Text>
+                                <Text className="text-zinc-500 text-sm leading-5">
+                                    {weeklyInsight.focusDescription}
+                                </Text>
+                            </View>
+                        </View>
+                    </>
+                ) : null}
 
                 {/* Tactical Segment */}
-                <SectionHeader icon={<Lightbulb size={20} color="#f97316" />} title="Recomendação tática" />
-                <View className="bg-zinc-900/40 rounded-3xl p-8 flex-row items-center mb-10">
-                    <View className="mr-8">
-                        <Droplet size={32} color="#f97316" fill="#f97316" />
-                    </View>
-                    <Text className="text-zinc-400 text-sm flex-1 leading-5">
-                        Deixe uma garrafa de 500ml na sua mesa de trabalho e só permita levantar após finalizá-la.
-                    </Text>
-                </View>
+                {weeklyInsight.tacticalRecommendation ? (
+                    <>
+                        <SectionHeader icon={<Lightbulb size={20} color="#f97316" />} title="Recomendação tática" />
+                        <View className="bg-zinc-900/40 rounded-3xl p-8 flex-row items-center mb-10">
+                            <View className="mr-8">
+                                <Droplet size={32} color="#f97316" fill="#f97316" />
+                            </View>
+                            <Text className="text-zinc-400 text-sm flex-1 leading-5">
+                                {weeklyInsight.tacticalRecommendation}
+                            </Text>
+                        </View>
+                    </>
+                ) : null}
 
                 {/* Book Segment */}
-                <SectionHeader icon={<BookOpen size={20} color="#f97316" />} title="Livro da semana" />
-                <View className="bg-zinc-900/40 rounded-3xl p-8 flex-row items-start mb-6">
-                    <View className="mr-6 mt-1">
-                        <View className="w-8 h-8 items-center justify-center">
-                            <View className="w-6 h-1 bg-orange-600 rounded-full rotate-45 absolute" />
-                            <View className="w-6 h-1 bg-orange-600 rounded-full -rotate-45 absolute" />
-                            {/* Simplified book icon representation for the screenshot effect */}
-                            <Text className="text-orange-600 font-black text-2xl">Z</Text>
+                {weeklyInsight.bookTitle ? (
+                    <>
+                        <SectionHeader icon={<BookOpen size={20} color="#f97316" />} title="Livro da semana" />
+                        <View className="bg-zinc-900/40 rounded-3xl p-8 flex-row items-start mb-6">
+                            <View className="mr-6 mt-1">
+                                <BookOpen size={28} color="#f97316" />
+                            </View>
+                            <View className="flex-1">
+                                <Text className="text-white font-bold text-lg mb-0.5">{weeklyInsight.bookTitle}</Text>
+                                <Text className="text-orange-600 text-sm font-bold mb-4">{weeklyInsight.bookAuthor}</Text>
+                                <Text className="text-zinc-500 text-sm italic leading-5">
+                                    "{weeklyInsight.bookReason}"
+                                </Text>
+                            </View>
                         </View>
-                    </View>
-                    <View className="flex-1">
-                        <Text className="text-white font-bold text-lg mb-0.5">Models</Text>
-                        <Text className="text-orange-600 text-sm font-bold mb-4">Mark Manson</Text>
-                        <Text className="text-zinc-500 text-sm italic leading-5">
-                            "Por quê: Seus logs recentes indicam dificuldades em dinâmicas sociais com mulheres."
-                        </Text>
-                    </View>
-                </View>
+                    </>
+                ) : null}
             </ScrollView>
         </SafeAreaView>
     );
