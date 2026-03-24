@@ -193,7 +193,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
         try {
             const response = await planService.getCompletions(userId);
             const completionItems = response.data || [];
-            const completionSet = new Set<string>(completionItems.map((c: any) => c.task_id));
+            const completionSet = new Set<string>(completionItems.map((c: any) => c.taskId || c.task_id));
 
             // Restore hydration state if the goal was already completed today
             const updates: Partial<PlanState> = { completions: completionSet };
