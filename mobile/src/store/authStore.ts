@@ -152,9 +152,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             // Load profile and plan status in parallel for efficiency
             const [profile, statusResponse] = await Promise.all([
                 profileService.getProfile(userId),
-                planService.getPlanStatus(userId).catch(() => ({ data: { hasPlan: false } }))
+                planService.getPlanStatus(userId).catch((err) => {
+                    console.log("[AuthStore] getPlanStatus FAILED:", err?.message);
+                    return { data: { hasPlan: false } };
+                })
             ]);
 
+            console.log("[AuthStore] getPlanStatus full response:", JSON.stringify(statusResponse.data));
             const hasPlan = statusResponse.data?.hasPlan ?? false;
 
             if (profile) set({ profile });
@@ -166,10 +170,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             console.log("[AuthStore] User data loaded for:", userId);
             console.log("[AuthStore] Has Plan:", hasPlan);
 
-            // If onboarded, fetch the full plan data
+            // If onboarded, fetch the full plan data into memory
             if (hasPlan) {
                 try {
                     await usePlanStore.getState().fetchUserPlan(userId);
+                    const planLoaded = usePlanStore.getState().plan;
+                    if (!planLoaded) {
+                        // Plan exists in DB but failed to load into memory — retry once
+                        console.warn("[AuthStore] Plan exists but failed to load, retrying...");
+                        await usePlanStore.getState().fetchUserPlan(userId);
+                    }
                 } catch (planError) {
                     console.error("[AuthStore] Error fetching plan data:", planError);
                 }
@@ -252,10 +262,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: true });
         try {
             const { data: { session } } = await supabase.auth.getSession();
+            console.log("[AuthStore] Cached session exists:", !!session);
+            console.log("[AuthStore] Cached user ID:", session?.user?.id ?? "none");
 
             if (session) {
                 // Validate the session against the server (catches deleted users)
                 const { data: { user }, error } = await supabase.auth.getUser();
+                console.log("[AuthStore] Server getUser result — user:", user?.id ?? "null", "error:", error?.message ?? "none");
 
                 if (error || !user) {
                     // Session is stale/invalid — clear it
@@ -268,6 +281,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 set({ session, user });
                 await get().loadUserData(user.id);
             } else {
+                console.log("[AuthStore] No session found, showing Landing screen");
                 set({ session: null, user: null });
             }
         } catch (error) {

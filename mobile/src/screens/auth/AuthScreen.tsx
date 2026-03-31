@@ -88,25 +88,15 @@ export const AuthScreen = () => {
 
                 {/* Social Login Buttons */}
                 <View className="gap-4">
-                    {/* Apple Button — must be above Google per Apple guidelines */}
+                    {/* Apple Button — native component, must be above Google per Apple guidelines */}
                     {Platform.OS === 'ios' && (
-                        <TouchableOpacity
+                        <AppleAuthentication.AppleAuthenticationButton
+                            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                            cornerRadius={12}
+                            style={{ height: 52, width: '100%', opacity: isLoading ? 0.5 : 1 }}
                             onPress={handleAppleLogin}
-                            disabled={isLoading}
-                            className="w-full py-4 rounded-xl items-center justify-center flex-row bg-white"
-                            style={{ opacity: isLoading ? 0.5 : 1 }}
-                        >
-                            {isLoadingApple ? (
-                                <ActivityIndicator color="#000" />
-                            ) : (
-                                <>
-                                    <Text style={{ fontSize: 20, marginRight: 10 }}></Text>
-                                    <Text className="text-black font-semibold text-base">
-                                        Continuar com Apple
-                                    </Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
+                        />
                     )}
 
                     {/* Google Button */}
