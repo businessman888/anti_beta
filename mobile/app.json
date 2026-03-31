@@ -3,6 +3,7 @@
     "name": "mobile",
     "slug": "mobile",
     "version": "1.0.0",
+    "scheme": "com.oytotec.antibeta",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,9 +14,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.oytotec.antibeta",
+      "usesAppleSignIn": true
     },
     "android": {
+      "package": "com.oytotec.antibeta",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -27,7 +31,9 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-apple-authentication",
+      "expo-web-browser"
     ]
   }
 }

@@ -252,13 +252,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: true });
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            set({ session, user: session?.user ?? null });
 
             if (session) {
-                await get().loadUserData(session.user.id);
+                // Validate the session against the server (catches deleted users)
+                const { data: { user }, error } = await supabase.auth.getUser();
+
+                if (error || !user) {
+                    // Session is stale/invalid — clear it
+                    console.log("[AuthStore] Stale session detected, signing out...");
+                    await supabase.auth.signOut();
+                    set({ session: null, user: null, profile: null, onboardingCompleted: false });
+                    return;
+                }
+
+                set({ session, user });
+                await get().loadUserData(user.id);
+            } else {
+                set({ session: null, user: null });
             }
         } catch (error) {
             console.error("Auth initialization error:", error);
+            // On network error, clear state to avoid stale redirect
+            set({ session: null, user: null, profile: null, onboardingCompleted: false });
         } finally {
             set({ isLoading: false });
         }

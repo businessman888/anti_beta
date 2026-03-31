@@ -1,7 +1,6 @@
 export type RootStackParamList = {
     Landing: undefined;
-    Login: undefined;
-    SignUp: undefined;
+    Auth: undefined;
     MainTabs: undefined; // Replaces Home directly in stack
     Onboarding: undefined;
     PlanLoading: undefined;

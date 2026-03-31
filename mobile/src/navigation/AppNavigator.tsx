@@ -3,9 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../store/authStore';
 import { LandingScreen } from '../screens/LandingScreen';
-import { LoginScreen } from '../screens/auth/LoginScreen';
-import { SignUpScreen } from '../screens/auth/SignUpScreen';
-import { HomeScreen } from '../screens/home/HomeScreen';
+import { AuthScreen } from '../screens/auth/AuthScreen';
 import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen';
 import { View, ActivityIndicator } from 'react-native';
 
@@ -21,6 +19,16 @@ import { ScreenTrackingScreen } from '../screens/profile/ScreenTrackingScreen';
 import { RootStackParamList } from '../types/navigation';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// Deep linking configuration
+const linking = {
+    prefixes: ['com.oytotec.antibeta://'],
+    config: {
+        screens: {
+            Auth: 'auth/callback',
+        },
+    },
+};
 
 export const AppNavigator = () => {
     const { session, isLoading, initialize, onboardingCompleted } = useAuthStore();
@@ -38,7 +46,7 @@ export const AppNavigator = () => {
     }
 
     return (
-        <NavigationContainer>
+        <NavigationContainer linking={linking}>
             <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#09090b' } }}>
                 {session ? (
                     // Authenticated Stack
@@ -69,8 +77,7 @@ export const AppNavigator = () => {
                     // Public Stack
                     <>
                         <Stack.Screen name="Landing" component={LandingScreen} />
-                        <Stack.Screen name="Login" component={LoginScreen} />
-                        <Stack.Screen name="SignUp" component={SignUpScreen} />
+                        <Stack.Screen name="Auth" component={AuthScreen} />
                     </>
                 )}
             </Stack.Navigator>
