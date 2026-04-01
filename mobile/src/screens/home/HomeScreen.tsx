@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { ScrollView, View } from 'react-native';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { ScrollView, View, Text, Animated, Easing } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
@@ -17,6 +17,9 @@ import { HydrationCard } from './components/HydrationCard';
 import { BioHackingCard } from './components/BioHackingCard';
 import { AlphaTipCard } from './components/AlphaTipCard';
 import { DailyQuizCard } from './components/DailyQuizCard';
+import { Zap } from 'lucide-react-native';
+import { supabase } from '../../lib/supabase';
+import { planService } from '../../services/api/planService';
 
 const CATEGORY_TYPE_MAP: Record<string, string> = {
     treino: 'workout',
@@ -41,10 +44,56 @@ export const HomeScreen = () => {
         completions,
         completeTask,
         fetchCompletions,
+        isGenerating,
+        generatePlan,
+        fetchUserPlan,
     } = usePlanStore();
 
     const { user, profile } = useAuthStore();
     const { isQuizLocked, quizAvailableIn, checkQuizStatus, todayStats, fetchTodayStats, historyStats, fetchHistory } = useProgressStore();
+
+    // Track whether we've already triggered plan generation this session
+    const hasTriggeredGeneration = useRef(false);
+    const [isPlanLoading, setIsPlanLoading] = useState(false);
+
+    // On first mount: if no plan exists, fetch quiz data and trigger generation
+    useEffect(() => {
+        if (!user || plan || hasTriggeredGeneration.current || isGenerating) return;
+
+        const triggerPlanGeneration = async () => {
+            hasTriggeredGeneration.current = true;
+            setIsPlanLoading(true);
+
+            try {
+                // Check if plan already exists on backend
+                const statusRes = await planService.getPlanStatus(user.id);
+                if (statusRes.data?.hasPlan) {
+                    // Plan exists, just fetch it
+                    await fetchUserPlan(user.id);
+                    setIsPlanLoading(false);
+                    return;
+                }
+
+                // No plan — fetch quiz answers from onboarding_results
+                const { data: onboardingData } = await supabase
+                    .from('onboarding_results')
+                    .select('full_quiz_data')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+
+                if (onboardingData?.full_quiz_data) {
+                    // Generate plan with the saved quiz answers
+                    await generatePlan(onboardingData.full_quiz_data, user.id);
+                }
+            } catch (err) {
+                console.error('[Home] Error triggering plan generation:', err);
+            } finally {
+                setIsPlanLoading(false);
+            }
+        };
+
+        triggerPlanGeneration();
+    }, [user, plan]);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -71,7 +120,6 @@ export const HomeScreen = () => {
         const fetchPoints = async () => {
             if (!user) return;
             try {
-                const { supabase } = require('../../lib/supabase');
                 const { data } = await supabase
                     .from('user_profiles')
                     .select('activityPoints')
@@ -86,7 +134,6 @@ export const HomeScreen = () => {
     }, [user, todayStats]);
 
     // In a real scenario, we would calculate current day/week/month based on plan start date
-    // For now, we use the first day of the first week
     const currentDay = 1;
     const currentWeek = 1;
     const currentMonth = 1;
@@ -121,6 +168,15 @@ export const HomeScreen = () => {
     const biohacking = getBiohacking(currentWeek, currentMonth);
     const alphaTip = getAlphaTip(currentWeek, currentMonth);
 
+    // Show loading overlay while plan is being generated
+    if (isPlanLoading || (isGenerating && !plan)) {
+        return (
+            <SafeAreaView className="flex-1 bg-zinc-950 items-center justify-center" edges={['top']}>
+                <PlanGeneratingOverlay />
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView className="flex-1 bg-zinc-950" edges={['top']}>
             <ScrollView
@@ -128,9 +184,9 @@ export const HomeScreen = () => {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 20 }}
             >
-                <HomeHeader 
-                    profile={profile} 
-                    userEmail={user?.email} 
+                <HomeHeader
+                    profile={profile}
+                    userEmail={user?.email}
                 />
 
                 <TestosteroneCard
@@ -210,5 +266,51 @@ export const HomeScreen = () => {
                 />
             </ScrollView>
         </SafeAreaView>
+    );
+};
+
+/** Loading overlay shown while the AI generates the plan */
+const PlanGeneratingOverlay = () => {
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        const pulse = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, {
+                    toValue: 1.15,
+                    duration: 1200,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulseAnim, {
+                    toValue: 1,
+                    duration: 1200,
+                    easing: Easing.inOut(Easing.ease),
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+        pulse.start();
+        return () => pulse.stop();
+    }, []);
+
+    return (
+        <View className="flex-1 items-center justify-center px-8">
+            <Animated.View style={{ transform: [{ scale: pulseAnim }] }} className="mb-10">
+                <View className="w-24 h-24 rounded-full bg-orange-600/20 items-center justify-center">
+                    <View className="w-16 h-16 rounded-full bg-orange-600/40 items-center justify-center">
+                        <View className="w-10 h-10 rounded-full bg-orange-600 items-center justify-center">
+                            <Zap size={22} color="white" fill="white" />
+                        </View>
+                    </View>
+                </View>
+            </Animated.View>
+            <Text className="text-white text-xl font-bold text-center mb-3">
+                Preparando seu ambiente
+            </Text>
+            <Text className="text-zinc-500 text-sm text-center leading-relaxed">
+                Aguarde, estamos preparando o{'\n'}ambiente alfa para você
+            </Text>
+        </View>
     );
 };

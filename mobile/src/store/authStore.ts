@@ -149,34 +149,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     loadUserData: async (userId: string) => {
         set({ isLoading: true });
         try {
-            // Load profile and plan status in parallel for efficiency
-            const [profile, statusResponse] = await Promise.all([
+            // Load profile, plan status, and onboarding results in parallel
+            const [profile, statusResponse, onboardingRes] = await Promise.all([
                 profileService.getProfile(userId),
                 planService.getPlanStatus(userId).catch((err) => {
                     console.log("[AuthStore] getPlanStatus FAILED:", err?.message);
                     return { data: { hasPlan: false } };
-                })
+                }),
+                supabase
+                    .from('onboarding_results')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .maybeSingle()
+                    .then(res => res.data)
+                    .catch(() => null),
             ]);
 
-            console.log("[AuthStore] getPlanStatus full response:", JSON.stringify(statusResponse.data));
             const hasPlan = statusResponse.data?.hasPlan ?? false;
+            const hasCompletedOnboarding = !!onboardingRes || hasPlan;
 
             if (profile) set({ profile });
-            set({ onboardingCompleted: hasPlan });
+            set({ onboardingCompleted: hasCompletedOnboarding });
 
             // Ensure user_profiles record exists for ranking
             await get().ensureUserProfile(userId);
 
             console.log("[AuthStore] User data loaded for:", userId);
-            console.log("[AuthStore] Has Plan:", hasPlan);
+            console.log("[AuthStore] Has Plan:", hasPlan, "| Onboarding done:", hasCompletedOnboarding);
 
-            // If onboarded, fetch the full plan data into memory
+            // If plan exists, fetch it into memory
             if (hasPlan) {
                 try {
                     await usePlanStore.getState().fetchUserPlan(userId);
                     const planLoaded = usePlanStore.getState().plan;
                     if (!planLoaded) {
-                        // Plan exists in DB but failed to load into memory — retry once
                         console.warn("[AuthStore] Plan exists but failed to load, retrying...");
                         await usePlanStore.getState().fetchUserPlan(userId);
                     }
@@ -184,6 +190,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     console.error("[AuthStore] Error fetching plan data:", planError);
                 }
             }
+            // If onboarding done but no plan yet, HomeScreen will trigger generation
         } catch (error) {
             console.error("[AuthStore] Error loading user data:", error);
             set({ onboardingCompleted: false });

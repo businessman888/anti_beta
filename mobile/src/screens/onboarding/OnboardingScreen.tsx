@@ -3,13 +3,14 @@ import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollVie
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowRight, Dog, Backpack, GraduationCap, Briefcase, Clock, UserX, Rocket } from 'lucide-react-native';
 import { useQuizStore } from '../../store/quizStore';
-import { usePlanStore } from '../../store/planStore';
 import { QuizProgressBar } from '../../components/quiz/QuizProgressBar';
 import { QuizInput } from '../../components/quiz/inputs/QuizInput';
 import { useAuthStore } from '../../store/authStore';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation';
+import { calculateArchetype } from '../../utils/archetypeCalculator';
+import { supabase } from '../../lib/supabase';
 
 import { QuizAgePicker } from '../../components/quiz/inputs/QuizAgePicker';
 import { QuizOptionSelection } from '../../components/quiz/inputs/QuizOptionSelection';
@@ -56,7 +57,7 @@ export const OnboardingScreen = () => {
     const [commitmentLevel, setCommitmentLevel] = useState<number>(answers.commitmentLevel || 10);
     const [additionalContext, setAdditionalContext] = useState<string>(answers.additionalContext || '');
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (currentStep === 0 && name.trim().length >= 3) {
             setAnswer('name', name);
             nextStep();
@@ -174,9 +175,26 @@ export const OnboardingScreen = () => {
                 commitmentLevel,
                 additionalContext,
             };
+            // Calculate archetype from answers
+            const archetype = calculateArchetype(allAnswers);
+            useQuizStore.getState().setArchetype(archetype);
+
+            // Save quiz data + archetype to Supabase
             const userId = useAuthStore.getState().session?.user?.id;
-            usePlanStore.getState().generatePlan(allAnswers, userId);
-            navigation.navigate('PlanLoading');
+            if (userId) {
+                try {
+                    await supabase.from('onboarding_results').upsert({
+                        user_id: userId,
+                        full_quiz_data: allAnswers,
+                        assigned_archetype: archetype.key,
+                    }, { onConflict: 'user_id' });
+                } catch (err) {
+                    console.error('[Onboarding] Error saving quiz results:', err);
+                }
+            }
+
+            // Go directly to archetype briefing (no plan generation yet)
+            navigation.navigate('PlanGenerated');
         } else {
             // Handle other steps or validation
             console.log("Validation failed or step not implemented");
