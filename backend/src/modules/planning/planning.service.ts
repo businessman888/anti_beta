@@ -1,18 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AiRouterService } from '../ai-core/ai-router.service';
 import { GeneratePlanDto } from './dto/generate-plan.dto';
 
 @Injectable()
 export class PlanningService {
   private readonly logger = new Logger(PlanningService.name);
-  private readonly anthropic: Anthropic;
 
-  constructor(private readonly prisma: PrismaService) {
-    this.anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiRouter: AiRouterService,
+  ) {}
 
   // In-memory tracking of generation status per user
   private generationStatus = new Map<string, 'generating' | 'done' | 'error'>();
@@ -28,16 +26,13 @@ export class PlanningService {
     this.logger.log(`Starting async plan generation for user: ${userId}`);
     this.logger.log(`Quiz answers received: ${Object.keys(answers).length} fields`);
 
-    // Mark as generating
     this.generationStatus.set(userId, 'generating');
     this.generationErrors.delete(userId);
 
-    // Fire-and-forget: generate in background
     this.generatePlanInBackground(userId, answers).catch((err) => {
       this.logger.error(`Background plan generation failed for ${userId}: ${err?.message}`);
     });
 
-    // Return immediately
     return { status: 'generating', userId };
   }
 
@@ -46,29 +41,34 @@ export class PlanningService {
     const userPrompt = this.buildUserPrompt(answers);
 
     try {
-      this.logger.log('Calling Anthropic API...');
+      this.logger.log('Calling Anthropic via router...');
 
-      const response = await this.anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 16384,
-        temperature: 0.7,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt,
-          },
-        ],
+      const { message: response } = await this.aiRouter.call({
+        featureName: 'plan_generation',
+        userId,
+        request: {
+          max_tokens: 16384,
+          temperature: 0.7,
+          // System as cacheable block — the static prompt is ~2k tokens repeated
+          // for every user. cache_control marks it ephemeral (5-min TTL).
+          system: [
+            {
+              type: 'text',
+              text: systemPrompt,
+              cache_control: { type: 'ephemeral' },
+            },
+          ],
+          messages: [{ role: 'user', content: userPrompt }],
+        },
       });
 
-      this.logger.log(`Anthropic API responded. Stop reason: ${response.stop_reason}`);
+      this.logger.log(`Anthropic responded. Stop reason: ${response.stop_reason}`);
 
       const content = response.content[0];
       if (content.type !== 'text') {
         throw new Error('Unexpected response type from AI');
       }
 
-      // Extract JSON from response (may be wrapped in markdown code blocks)
       let planJson: any;
       try {
         const jsonMatch = content.text.match(/```json\s*([\s\S]*?)\s*```/);
@@ -82,18 +82,12 @@ export class PlanningService {
 
       this.logger.log('Plan JSON parsed successfully');
 
-      // Save plan to database
       try {
         this.logger.log(`Saving plan to database for user ${userId}...`);
         const plan = await this.prisma.plan.upsert({
           where: { userId },
-          create: {
-            userId,
-            planData: planJson,
-          },
-          update: {
-            planData: planJson,
-          },
+          create: { userId, planData: planJson },
+          update: { planData: planJson },
         });
 
         this.logger.log(`Plan saved for user ${userId}, plan id: ${plan.id}`);
@@ -124,7 +118,6 @@ export class PlanningService {
       select: { id: true },
     });
 
-    // Clean up status tracking once client has seen the result
     if (genStatus === 'done' || genStatus === 'error') {
       this.generationStatus.delete(userId);
       if (genStatus === 'error') {
@@ -162,10 +155,7 @@ export class PlanningService {
     this.logger.log(`Marking task ${taskId} as completed for user ${userId}`);
     try {
       return await this.prisma.dailyCompletion.create({
-        data: {
-          userId,
-          taskId,
-        },
+        data: { userId, taskId },
       });
     } catch (error: any) {
       if (error.code === 'P2002') {
@@ -179,7 +169,6 @@ export class PlanningService {
 
   async getDailyCompletions(userId: string) {
     this.logger.log(`Fetching daily completions for user: ${userId}`);
-    // Build a date-only string (YYYY-MM-DD) to match the @db.Date column
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const todayDate = new Date(todayStr + 'T00:00:00.000Z');
@@ -187,14 +176,12 @@ export class PlanningService {
     return this.prisma.dailyCompletion.findMany({
       where: {
         userId,
-        completedAt: {
-          equals: todayDate,
-        },
+        completedAt: { equals: todayDate },
       },
     });
   }
 
-  private buildSystemPrompt(): string {
+  buildSystemPrompt(): string {
     return `Você é o Agente de Planejamento do Antibeta, especializado em criar planos de transformação masculina personalizados.
 
 CONTEXTO:
@@ -281,7 +268,7 @@ REGRAS:
 6. SOMENTE JSON, sem texto antes ou depois, sem code blocks.`;
   }
 
-  private buildUserPrompt(answers: Record<string, any>): string {
+  buildUserPrompt(answers: Record<string, any>): string {
     return `Gere o plano trimestral personalizado para o seguinte usuário:
 
 PERFIL DO USUÁRIO:

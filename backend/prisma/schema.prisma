@@ -186,6 +186,28 @@ model DailyStats {
   @@map("daily_stats")
 }
 
+model AiUsageLog {
+  id                    String   @id @default(uuid()) @db.Uuid
+  userId                String?  @map("user_id") @db.Uuid
+  featureName           String   @map("feature_name")
+  modelName             String   @map("model_name")
+  inputTokens           Int      @default(0) @map("input_tokens")
+  outputTokens          Int      @default(0) @map("output_tokens")
+  cacheCreationTokens   Int      @default(0) @map("cache_creation_tokens")
+  cacheReadTokens       Int      @default(0) @map("cache_read_tokens")
+  estimatedCostUsd      Decimal  @default(0) @map("estimated_cost_usd") @db.Decimal(12, 8)
+  latencyMs             Int      @default(0) @map("latency_ms")
+  status                String   @default("success") // success | error
+  errorMessage          String?  @map("error_message")
+  fallbackUsed          Boolean  @default(false) @map("fallback_used")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([featureName, createdAt])
+  @@index([modelName, createdAt])
+  @@map("ai_usage_logs")
+}
+
 model WeeklyInsight {
   id                    String   @id @default(uuid()) @db.Uuid
   userId                String   @map("user_id") @db.Uuid

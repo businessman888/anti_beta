@@ -1,6 +1,5 @@
 import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import Anthropic from '@anthropic-ai/sdk';
+import { AiRouterService } from '../ai-core/ai-router.service';
 
 const TOUGH_LOVE_SYSTEM_PROMPT = `Você é o Coach Alpha — um mentor masculino direto, focado e exigente, no estilo "tough love".
 Seu papel é ser um líder rigoroso para homens focados em autoaperfeiçoamento físico, mental e hormonal.
@@ -21,56 +20,50 @@ export interface AgentUserContext {
     userName: string | null;
     testoLevel: number;
     activityPoints: number;
-    weeklyCompliance: number; // dias da semana com registro (0-7)
+    weeklyCompliance: number;
     totalWeekDays: number;
     nofapStreak: number;
-    ranking: string; // ex: "Alpha", "Beta", "Sigma"
+    ranking: string;
 }
 
 @Injectable()
 export class AnthropicService {
     private readonly logger = new Logger(AnthropicService.name);
-    private readonly client: Anthropic;
 
-    constructor(private configService: ConfigService) {
-        this.client = new Anthropic({
-            apiKey: this.configService.get<string>('anthropic.apiKey', ''),
-        });
-    }
+    constructor(private readonly aiRouter: AiRouterService) {}
 
     /**
-     * Generates a "tough love" mentor response using Claude Haiku
-     * with Prompt Caching on the system prompt and user context.
+     * Generates a "tough love" mentor response using Claude Haiku via the
+     * router (with usage logging + cross-tier fallback to Sonnet on failure).
      */
     async generateMentorResponse(
         userMessage: string,
         context: AgentUserContext,
+        userId?: string,
     ): Promise<string> {
         const contextBlock = this.buildContextBlock(context);
 
         try {
-            const response = await this.client.messages.create({
-                model: 'claude-haiku-4-5-20251001',
-                max_tokens: 256,
-                temperature: 0.8,
-                system: [
-                    {
-                        type: 'text',
-                        text: TOUGH_LOVE_SYSTEM_PROMPT,
-                        cache_control: { type: 'ephemeral' },
-                    },
-                    {
-                        type: 'text',
-                        text: contextBlock,
-                        cache_control: { type: 'ephemeral' },
-                    },
-                ],
-                messages: [
-                    {
-                        role: 'user',
-                        content: userMessage,
-                    },
-                ],
+            const { message: response, modelUsed, fallbackUsed } = await this.aiRouter.call({
+                featureName: 'chat_agent',
+                userId: userId ?? null,
+                request: {
+                    max_tokens: 256,
+                    temperature: 0.8,
+                    system: [
+                        {
+                            type: 'text',
+                            text: TOUGH_LOVE_SYSTEM_PROMPT,
+                            cache_control: { type: 'ephemeral' },
+                        },
+                        {
+                            type: 'text',
+                            text: contextBlock,
+                            cache_control: { type: 'ephemeral' },
+                        },
+                    ],
+                    messages: [{ role: 'user', content: userMessage }],
+                },
             });
 
             const text =
@@ -82,9 +75,9 @@ export class AnthropicService {
                 throw new Error('Claude retornou resposta vazia');
             }
 
-            this.logger.log(
-                `Claude response (${response.usage?.input_tokens}in/${response.usage?.output_tokens}out, cache: ${(response as any).usage?.cache_creation_input_tokens ?? 0}created/${(response as any).usage?.cache_read_input_tokens ?? 0}read)`,
-            );
+            if (fallbackUsed) {
+                this.logger.warn(`chat_agent served by fallback model ${modelUsed}`);
+            }
 
             return text.trim();
         } catch (error) {

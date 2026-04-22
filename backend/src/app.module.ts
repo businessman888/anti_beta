@@ -8,12 +8,14 @@ import { ScannerModule } from './modules/scanner/scanner.module';
 import { InsightsModule } from './modules/insights/insights.module';
 import { AwsModule } from './modules/aws/aws.module';
 import { ConversationalModule } from './modules/conversational/conversational.module';
+import { AiCoreModule } from './modules/ai-core/ai-core.module';
 import appConfig from './config/app.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [appConfig] }),
     PrismaModule,
+    AiCoreModule,
     AwsModule,
     PlanningModule,
     ScannerModule,

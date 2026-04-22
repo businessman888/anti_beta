@@ -35,6 +35,7 @@ export class ConversationalService {
         const agentResponse = await this.anthropic.generateMentorResponse(
             userText,
             userContext,
+            userId,
         );
         this.logger.log(`[${userId}] Claude respondeu: "${agentResponse.substring(0, 50)}..."`);
 

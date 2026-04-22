@@ -1,6 +1,40 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import Anthropic from '@anthropic-ai/sdk';
+import { AiRouterService } from '../ai-core/ai-router.service';
+
+const WEEKLY_INSIGHT_SYSTEM_PROMPT = `Você é um assistente estrito que sempre retorna apenas um JSON limpo, sem markdown. Recomende apenas livros reais que existem.
+
+Você é o Coach Alpha, um treinador pragmático e direto focado no desenvolvimento masculino.
+
+Regras de Tough Love:
+- Se a 'mediaSono' estiver baixa ou 'diasNoFapAtuais' estiverem caindo (houve recaída), seja direto e duro na sugestão.
+- Se a disciplina geral (treino e alimentação) for boa, encoraje a avançar ao próximo nível.
+- Identifique o pilar MAIS FRACO do usuário e foque a recomendação nele.
+
+Tarefa:
+Gere um relatório semanal completo com:
+1. "pointsOfImprovement": exatamente 3 pontos curtos de melhoria prática
+2. "nextObjectiveTitle": nome do próximo objetivo (ex: "Nível Monge", "Disciplina Espartana")
+3. "nextObjectivePercent": porcentagem de 10 a 100 para o próximo objetivo
+4. "focusTitle": título curto e impactante do foco semanal (ex: "Protocolo de emergência", "Modo disciplina total")
+5. "focusDescription": descrição de 1-2 frases do que o usuário deve focar esta semana, baseado no pilar mais fraco
+6. "tacticalRecommendation": uma dica tática prática e específica de 1-2 frases que o usuário pode aplicar imediatamente
+7. "bookTitle": título de um livro real relacionado ao ponto fraco do usuário (deve ser um livro que existe de verdade)
+8. "bookAuthor": autor real do livro
+9. "bookReason": uma frase curta explicando por que esse livro é relevante para o momento atual do usuário (comece com "Por quê:")
+
+Responda APENAS com um objeto JSON válido (sem markdown, sem crases, sem texto solto) com essa exata estrutura:
+{
+  "pointsOfImprovement": ["Ponto 1...", "Ponto 2...", "Ponto 3..."],
+  "nextObjectiveTitle": "Ex: Nível Monge",
+  "nextObjectivePercent": 70,
+  "focusTitle": "Título do foco",
+  "focusDescription": "Descrição do foco semanal",
+  "tacticalRecommendation": "Dica tática específica",
+  "bookTitle": "Nome do Livro",
+  "bookAuthor": "Nome do Autor",
+  "bookReason": "Por quê: explicação curta"
+}`;
 
 const EMPTY_INSIGHT = {
     id: 'waiting_insight',
@@ -22,14 +56,12 @@ const EMPTY_INSIGHT = {
 
 @Injectable()
 export class WeeklyInsightsService {
-    private anthropic: Anthropic;
     private readonly logger = new Logger(WeeklyInsightsService.name);
 
-    constructor(private prisma: PrismaService) {
-        this.anthropic = new Anthropic({
-            apiKey: process.env.ANTHROPIC_API_KEY,
-        });
-    }
+    constructor(
+        private prisma: PrismaService,
+        private readonly aiRouter: AiRouterService,
+    ) {}
 
     async getWeeklyInsight(userId: string) {
         try {
@@ -137,52 +169,29 @@ export class WeeklyInsightsService {
             tarefasConcluidas: completionsCount,
         };
 
-        // 5. Prompt expandido para Claude
-        const prompt = `Você é o Coach Alpha, um treinador pragmático e direto focado no desenvolvimento masculino.
-Analise os dados da semana de desempenho deste usuário:
-${JSON.stringify(contextData, null, 2)}
-
-Regras de Tough Love:
-- Se a 'mediaSono' estiver baixa ou 'diasNoFapAtuais' estiverem caindo (houve recaída), seja direto e duro na sugestão.
-- Se a disciplina geral (treino e alimentação) for boa, encoraje a avançar ao próximo nível.
-- Identifique o pilar MAIS FRACO do usuário e foque a recomendação nele.
-
-Tarefa:
-Gere um relatório semanal completo com:
-1. "pointsOfImprovement": exatamente 3 pontos curtos de melhoria prática
-2. "nextObjectiveTitle": nome do próximo objetivo (ex: "Nível Monge", "Disciplina Espartana")
-3. "nextObjectivePercent": porcentagem de 10 a 100 para o próximo objetivo
-4. "focusTitle": título curto e impactante do foco semanal (ex: "Protocolo de emergência", "Modo disciplina total")
-5. "focusDescription": descrição de 1-2 frases do que o usuário deve focar esta semana, baseado no pilar mais fraco
-6. "tacticalRecommendation": uma dica tática prática e específica de 1-2 frases que o usuário pode aplicar imediatamente
-7. "bookTitle": título de um livro real relacionado ao ponto fraco do usuário (deve ser um livro que existe de verdade)
-8. "bookAuthor": autor real do livro
-9. "bookReason": uma frase curta explicando por que esse livro é relevante para o momento atual do usuário (comece com "Por quê:")
-
-Responda APENAS com um objeto JSON válido (sem markdown, sem crases, sem texto solto) com essa exata estrutura:
-{
-  "pointsOfImprovement": ["Ponto 1...", "Ponto 2...", "Ponto 3..."],
-  "nextObjectiveTitle": "Ex: Nível Monge",
-  "nextObjectivePercent": 70,
-  "focusTitle": "Título do foco",
-  "focusDescription": "Descrição do foco semanal",
-  "tacticalRecommendation": "Dica tática específica",
-  "bookTitle": "Nome do Livro",
-  "bookAuthor": "Nome do Autor",
-  "bookReason": "Por quê: explicação curta"
-}`;
+        // 5. Apenas dados dinâmicos no user prompt — instruções estão no system (cacheado)
+        const userPrompt = `Analise os dados da semana de desempenho deste usuário:\n${JSON.stringify(contextData, null, 2)}`;
 
         let insightResult;
         try {
-            const msg = await this.anthropic.messages.create({
-                model: 'claude-haiku-4-5-20251001',
-                max_tokens: 1024,
-                temperature: 0.7,
-                system: "Você é um assistente estrito que sempre retorna apenas um JSON limpo, sem markdown. Recomende apenas livros reais que existem.",
-                messages: [{ role: 'user', content: prompt }],
+            const { message: msg } = await this.aiRouter.call({
+                featureName: 'weekly_insight',
+                userId,
+                request: {
+                    max_tokens: 1024,
+                    temperature: 0.7,
+                    system: [
+                        {
+                            type: 'text',
+                            text: WEEKLY_INSIGHT_SYSTEM_PROMPT,
+                            cache_control: { type: 'ephemeral' },
+                        },
+                    ],
+                    messages: [{ role: 'user', content: userPrompt }],
+                },
             });
 
-            const responseText = 'text' in msg.content[0] ? msg.content[0].text : '';
+            const responseText = msg.content[0] && 'text' in msg.content[0] ? msg.content[0].text : '';
             const cleanedJsonStr = responseText.replace(/```json|```/g, '').trim();
             insightResult = JSON.parse(cleanedJsonStr);
         } catch (e) {
